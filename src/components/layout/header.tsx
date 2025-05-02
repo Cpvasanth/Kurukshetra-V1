@@ -4,9 +4,14 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, X, Trophy } from 'lucide-react';
+import { Menu, X, Trophy, LogIn, LogOut, Loader2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { getAuth, onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase/client'; // Import initialized auth instance
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+
 
 const AnimatedLogo = () => {
   const [visible, setVisible] = useState(false);
@@ -41,14 +46,89 @@ const AnimatedLogo = () => {
 export function Header() {
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true); // Start loading until auth state is known
+  const { toast } = useToast();
+  const router = useRouter();
 
-  const navLinks = [
+
+   // Listen for auth state changes
+   useEffect(() => {
+     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+       setUser(currentUser);
+       setAuthLoading(false); // Auth state is now known
+     });
+     // Cleanup subscription on unmount
+     return () => unsubscribe();
+   }, []);
+
+   const handleSignOut = async () => {
+     try {
+       await signOut(auth);
+       toast({ title: "Signed Out", description: "Logged out successfully." });
+       setIsOpen(false); // Close mobile menu if open
+       router.push('/'); // Redirect to home after logout
+     } catch (error) {
+       console.error("Sign Out Error:", error);
+       toast({ title: "Sign Out Error", variant: "destructive" });
+     }
+   };
+
+  const navLinksBase = [
     { href: '/', label: 'Home' },
     { href: '/results', label: 'Results' },
     { href: '/schedule', label: 'Schedules' },
     { href: '/leaderboard', label: 'Leaderboard' },
-    { href: '/admin', label: 'Admin Login' },
   ];
+
+  // Determine Admin link/button based on auth state
+   const adminLink = user
+     ? { href: '/admin/dashboard', label: 'Admin Dashboard' }
+     : { href: '/admin', label: 'Admin Login' };
+
+   const mobileAuthAction = user ? (
+      <Button variant="ghost" onClick={handleSignOut} className="w-full justify-start text-lg hover:text-accent transition-colors text-primary-foreground">
+        <LogOut className="mr-2 h-5 w-5" /> Sign Out
+      </Button>
+    ) : (
+      <Link
+         href="/admin"
+         className="text-lg hover:text-accent transition-colors flex items-center"
+         onClick={() => setIsOpen(false)}
+       >
+        <LogIn className="mr-2 h-5 w-5" /> Admin Login
+      </Link>
+    );
+
+    const desktopAuthAction = authLoading ? (
+      <Loader2 className="h-5 w-5 animate-spin" /> // Show loader while checking auth
+    ) : user ? (
+      <>
+        <Link
+            key={adminLink.href}
+            href={adminLink.href}
+            className="text-sm font-medium hover:text-accent transition-colors duration-200 ease-in-out transform hover:scale-105"
+        >
+            {adminLink.label}
+        </Link>
+        <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-primary-foreground hover:bg-primary/90 hover:text-accent">
+          <LogOut className="h-4 w-4" />
+          <span className="sr-only">Sign Out</span>
+        </Button>
+      </>
+    ) : (
+       <Link
+         key={adminLink.href}
+         href={adminLink.href}
+         className="text-sm font-medium hover:text-accent transition-colors duration-200 ease-in-out transform hover:scale-105"
+       >
+         {adminLink.label}
+       </Link>
+    );
+
+
+  const allNavLinks = [...navLinksBase]; // Admin link handled separately for desktop
+
 
   return (
     <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
@@ -63,7 +143,7 @@ export function Header() {
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[250px] bg-primary text-primary-foreground p-4">
+            <SheetContent side="right" className="w-[250px] bg-primary text-primary-foreground p-4 flex flex-col">
               <div className="flex justify-between items-center mb-6">
                  <Link href="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
                     <Trophy className="h-6 w-6 text-accent" />
@@ -74,8 +154,8 @@ export function Header() {
                   <span className="sr-only">Close menu</span>
                 </Button>
               </div>
-              <nav className="flex flex-col space-y-4">
-                {navLinks.map((link) => (
+              <nav className="flex flex-col space-y-4 flex-grow">
+                {allNavLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
@@ -85,12 +165,16 @@ export function Header() {
                     {link.label}
                   </Link>
                 ))}
+                 {/* Spacer */}
+                 <div className="flex-grow"></div>
+                 {/* Auth Action */}
+                 {authLoading ? <Loader2 className="h-5 w-5 animate-spin self-start mt-4" /> : mobileAuthAction}
               </nav>
             </SheetContent>
           </Sheet>
         ) : (
           <nav className="flex space-x-6 items-center">
-            {navLinks.map((link) => (
+            {allNavLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -99,6 +183,10 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            {/* Desktop Auth Action */}
+             <div className="flex items-center gap-2 pl-4 border-l border-primary-foreground/30">
+               {desktopAuthAction}
+             </div>
           </nav>
         )}
       </div>

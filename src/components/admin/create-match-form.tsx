@@ -12,10 +12,10 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, CheckCircle } from 'lucide-react';
+import { CalendarIcon, CheckCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
-import { createSportsEvent } from '@/services/sports-data'; // Import the service function
+import { createSportsEvent } from '@/services/sports-data'; // Import the actual service function
 import type { SportsEvent } from '@/services/sports-data';
 
 const matchSchema = z.object({
@@ -24,12 +24,14 @@ const matchSchema = z.object({
   date: z.date({ required_error: 'Please select a date.' }),
   time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Invalid time format (HH:MM).' }),
   team1: z.string().min(1, { message: 'Please enter the first team name.' }),
-  team2: z.string().min(1, { message: 'Please enter the second team name.' })
-    .refine((data) => data.team1 !== data.team2, { // Ensure teams are different
-      message: "Teams must be different.",
-      path: ["team2"], // Attach error to team2 field
-    }),
+  team2: z.string().min(1, { message: 'Please enter the second team name.' }),
+})
+// Add refine *after* the object definition for cross-field validation
+.refine((data) => data.team1 !== data.team2, {
+    message: "Teams must be different.",
+    path: ["team2"], // Attach error to team2 field
 });
+
 
 type MatchFormData = z.infer<typeof matchSchema>;
 
@@ -67,15 +69,10 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
     };
 
     try {
-        // TODO: Replace with actual API call using createSportsEvent
-        // For now, we simulate success and create a temporary ID
-        const createdEvent: SportsEvent = {
-          ...newEventData,
-          id: `temp-${Date.now()}`, // Temporary ID for demo
-        };
-        // const createdEvent = await createSportsEvent(newEventData); // Use this when API is ready
+        // Use the actual createSportsEvent function
+        const createdEvent = await createSportsEvent(newEventData);
 
-        console.log('Simulated created event:', createdEvent);
+        console.log('Successfully created event:', createdEvent);
 
         setShowSuccess(true);
         form.reset(); // Reset form after successful submission
@@ -83,7 +80,7 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
             title: "Match Created!",
             description: (
                  <div className="flex items-center text-green-600">
-                    <CheckCircle className="mr-2 h-5 w-5 animate-pulse" />
+                    <CheckCircle className="mr-2 h-5 w-5" />
                     <span>{createdEvent.matchTitle} scheduled successfully.</span>
                  </div>
             ),
@@ -232,6 +229,7 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
 
 
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 transition-transform transform hover:scale-105" disabled={isLoading}>
+           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isLoading ? 'Scheduling...' : 'Schedule Match'}
         </Button>
 

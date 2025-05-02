@@ -1,42 +1,45 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SportsEvent } from '@/services/sports-data';
-import { getSportsEvents } from '@/services/sports-data';
+import type { SportsEvent } from '@/services/sports-data';
+import { getSportsEvents } from '@/services/sports-data'; // Use Firestore function
 import { MatchList } from '@/components/match-list';
 import { SportsFilter } from '@/components/sports-filter';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function SchedulePage() {
   const [events, setEvents] = useState<SportsEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSport, setSelectedSport] = useState<string>('all');
+  const { toast } = useToast();
 
   useEffect(() => {
     async function loadEvents() {
       try {
         setLoading(true);
-        const fetchedEvents = await getSportsEvents();
-        // Sort events by date and time
-        fetchedEvents.sort((a, b) => {
-           const dateA = new Date(`${a.date}T${a.time}`);
-           const dateB = new Date(`${b.date}T${b.time}`);
-           return dateA.getTime() - dateB.getTime();
-        });
+        const fetchedEvents = await getSportsEvents(); // Fetches ordered events from Firestore
         setEvents(fetchedEvents);
       } catch (error) {
         console.error("Failed to load schedule:", error);
-        // Add error handling (e.g., toast notification)
+         toast({
+             title: "Error Loading Schedule",
+             description: "Could not fetch the match schedule. Please try again later.",
+             variant: "destructive",
+         });
       } finally {
         setLoading(false);
       }
     }
     loadEvents();
-  }, []);
+  }, [toast]); // Add toast dependency
 
+
+  // Filter events based on selected sport (filtering happens client-side after fetch)
   const filteredEvents = events.filter(event =>
-     selectedSport === 'all' || event.matchTitle.toLowerCase().includes(selectedSport.toLowerCase()) // Basic filtering
+     selectedSport === 'all' || event.matchTitle.toLowerCase().includes(selectedSport.toLowerCase())
    );
 
   return (
@@ -61,9 +64,10 @@ export default function SchedulePage() {
          <h2 className="text-xl font-semibold mb-4 text-primary">Upcoming Events</h2>
         {loading ? (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => ( <Skeleton key={i} className="h-[250px] rounded-lg" /> ))}
+              {[...Array(6)].map((_, i) => ( <Skeleton key={`skel-sch-${i}`} className="h-[250px] rounded-lg" /> ))}
             </div>
         ) : filteredEvents.length > 0 ? (
+          // Pass already sorted events to MatchList
           <MatchList events={filteredEvents} />
         ) : (
           <p className="text-muted-foreground text-center py-8">

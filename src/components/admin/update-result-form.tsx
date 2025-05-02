@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from "@/hooks/use-toast";
-import { updateMatchResult } from '@/services/sports-data'; // Import the service function
+import { updateMatchResult } from '@/services/sports-data'; // Import the actual service function
 import type { SportsEvent, MatchResult } from '@/services/sports-data';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 
@@ -86,13 +86,10 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
      };
 
     try {
-        // TODO: Replace with actual API call using updateMatchResult
-        // For now, simulate success
-         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
-         const updatedResult = resultData; // Assume API returns the updated data
-        // const updatedResult = await updateMatchResult(resultData); // Use this when API is ready
+        // Use the actual updateMatchResult function
+         const updatedResult = await updateMatchResult(resultData);
 
-         console.log('Simulated updated result:', updatedResult);
+         console.log('Successfully updated result:', updatedResult);
 
          setShowSuccess(true);
          // Optionally reset form or just show success
@@ -100,7 +97,7 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
              title: "Result Updated!",
              description: (
                   <div className="flex items-center text-green-600">
-                     <CheckCircle className="mr-2 h-5 w-5 animate-pulse" />
+                     <CheckCircle className="mr-2 h-5 w-5" />
                      <span>Result for {selectedMatch?.matchTitle} updated successfully.</span>
                   </div>
              ),
@@ -146,11 +143,11 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
                       handleMatchSelect(value);
                   }}
                   defaultValue={field.value}
-                  disabled={isLoading}
+                  disabled={isLoading || matches.length === 0} // Disable if loading or no matches
                >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a match to update" />
+                    <SelectValue placeholder={matches.length > 0 ? "Select a match to update" : "No matches available"} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -244,7 +241,8 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
                )}
              />
 
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 transition-transform transform hover:scale-105" disabled={isLoading}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 transition-transform transform hover:scale-105" disabled={isLoading || !selectedMatch}>
+               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'Updating...' : 'Update Result'}
             </Button>
 
