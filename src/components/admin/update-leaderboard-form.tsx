@@ -13,12 +13,12 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 import { updateTeamStanding } from '@/services/sports-data'; // Import the actual service function
 import type { TeamStanding } from '@/services/sports-data';
-import { CheckCircle, Loader2, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
+import { CheckCircle, Loader2, Smile } from 'lucide-react'; // Replace ImageIcon with Smile or similar
 
 const standingSchema = z.object({
   teamName: z.string().min(1, { message: 'Please select a team.' }),
   points: z.coerce.number().min(0, 'Points cannot be negative.').int('Points must be an integer.'),
-  logo: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')), // Optional URL
+  mascot: z.string().optional().or(z.literal('')), // Optional mascot emoji string
 });
 
 type StandingFormData = z.infer<typeof standingSchema>;
@@ -28,6 +28,14 @@ interface UpdateLeaderboardFormProps {
   currentStandings: TeamStanding[]; // Current standings for pre-population
   onStandingUpdated?: () => void; // Simple refresh callback
 }
+
+// Define mascots
+const teamMascots: { [key: string]: string } = {
+    SKYLARIOS: '🐺',
+    DRACARYS: '🐉',
+    AETOS: '🦅',
+    XANTHUS: '🎠',
+};
 
 export function UpdateLeaderboardForm({ teams, currentStandings, onStandingUpdated }: UpdateLeaderboardFormProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +48,7 @@ export function UpdateLeaderboardForm({ teams, currentStandings, onStandingUpdat
     defaultValues: {
       teamName: '',
       points: 0,
-      logo: '',
+      mascot: '',
     },
   });
 
@@ -48,14 +56,16 @@ export function UpdateLeaderboardForm({ teams, currentStandings, onStandingUpdat
   useEffect(() => {
     if (selectedTeam) {
       const currentStanding = currentStandings.find(s => s.teamName === selectedTeam);
+      // Set mascot from predefined list or current standing, default to empty
+      const mascotValue = teamMascots[selectedTeam.toUpperCase()] ?? currentStanding?.mascot ?? '';
       form.reset({
         teamName: selectedTeam,
         points: currentStanding?.points ?? 0,
-        logo: currentStanding?.logo ?? '',
+        mascot: mascotValue,
       });
     } else {
       form.reset({ // Reset if no team is selected
-        teamName: '', points: 0, logo: ''
+        teamName: '', points: 0, mascot: ''
       });
     }
   }, [selectedTeam, form, currentStandings]);
@@ -73,7 +83,7 @@ export function UpdateLeaderboardForm({ teams, currentStandings, onStandingUpdat
     const standingDataToSend = {
         teamName: data.teamName,
         points: data.points,
-        logo: data.logo || undefined, // Store as undefined if empty
+        mascot: data.mascot || undefined, // Store as undefined if empty
     };
 
     try {
@@ -99,7 +109,7 @@ export function UpdateLeaderboardForm({ teams, currentStandings, onStandingUpdat
       // Hide success message after delay
       setTimeout(() => setShowSuccess(false), 3000);
 
-    } catch (error) {
+    } catch (error: unknown) { // Use unknown type
       console.error("Failed to update standing:", error);
       toast({
         title: "Error Updating Standing",
@@ -144,7 +154,7 @@ export function UpdateLeaderboardForm({ teams, currentStandings, onStandingUpdat
                     {teams.length > 0 ? (
                       teams.map((teamName) => (
                         <SelectItem key={teamName} value={teamName}>
-                          {teamName}
+                          {teamName} {teamMascots[teamName.toUpperCase()] ?? ''} {/* Show mascot in selection */}
                         </SelectItem>
                       ))
                     ) : (
@@ -177,17 +187,17 @@ export function UpdateLeaderboardForm({ teams, currentStandings, onStandingUpdat
 
             <FormField
               control={form.control}
-              name="logo"
+              name="mascot"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Team Logo URL (Optional)</FormLabel>
+                  <FormLabel>Team Mascot Emoji (Optional)</FormLabel>
                   <FormControl>
                     <div className="flex items-center space-x-2">
-                       <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                       <Input type="url" placeholder="https://example.com/team-logo.png" {...field} disabled={isLoading} />
+                       <Smile className="h-5 w-5 text-muted-foreground" />
+                       <Input type="text" placeholder="e.g., 🐺" maxLength={2} {...field} disabled={isLoading} />
                     </div>
                   </FormControl>
-                  <FormDescription>Enter the URL of the team's logo image.</FormDescription>
+                  <FormDescription>Enter the emoji representing the team's mascot.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

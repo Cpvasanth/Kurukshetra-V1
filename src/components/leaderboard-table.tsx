@@ -82,9 +82,10 @@ export function LeaderboardTable() {
                 <TableCell>
                     <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
-                         {/* Use optional chaining for logo */}
-                        <AvatarImage src={entry.logo ?? undefined} alt={`${entry.teamName} logo`} data-ai-hint={`${entry.teamName} logo`} />
-                        <AvatarFallback>{getInitials(entry.teamName)}</AvatarFallback>
+                         {/* Use mascot in fallback if available, otherwise initials */}
+                        <AvatarFallback className="text-lg"> {/* Make fallback slightly larger */}
+                            {entry.mascot ? entry.mascot : getInitials(entry.teamName)}
+                        </AvatarFallback>
                     </Avatar>
                     <span className="font-medium">{entry.teamName}</span>
                     </div>
