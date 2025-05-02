@@ -83,11 +83,13 @@ export function MatchList({ events }: MatchListProps) {
                {/* Format time from the converted timestamp */}
               <span>{format(matchDateTime, 'p')}</span> {/* 'p' for localized time */}
             </div>
-             {/* Placeholder for venue */}
+             {/* Location section removed */}
+             {/*
              <div className="flex items-center text-sm text-muted-foreground">
                <MapPin className="w-4 h-4 mr-2 text-primary shrink-0" />
-               <span>Main Stadium</span> {/* Replace with actual venue if available */}
+               <span>Main Stadium</span> // Removed
              </div>
+             */}
 
             {/* Match Countdown - Pass the JS Date object */}
              <div className="pt-2"> {/* Add padding top for spacing */}
