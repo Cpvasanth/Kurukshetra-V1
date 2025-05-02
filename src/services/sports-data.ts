@@ -148,7 +148,7 @@ export async function getSportsEvents(): Promise<SportsEvent[]> {
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-     console.error("Detailed Error:", error); // Log the full error object
+     console.error("Detailed Error fetching sports events:", error); // Log the full error object
      throw new Error(errorMessage); // Throw a more informative error
   }
 }
@@ -218,11 +218,8 @@ export async function createSportsEvent(eventData: {
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-     console.error("Detailed Error:", {
-       code: (error as any).code, // Attempt to get code if available
-       message: error.message,
-       stack: error.stack,
-     });
+      // Log the raw error object for better inspection
+      console.error("Detailed Error creating sports event:", error);
      throw new Error(errorMessage);
    }
 }
@@ -282,7 +279,7 @@ export async function updateSportsEvent(event: SportsEvent): Promise<SportsEvent
      } else if (error instanceof Error) {
          errorMessage = error.message;
      }
-     console.error("Detailed Error:", error);
+     console.error("Detailed Error updating sports event:", error); // Log the raw error object
      throw new Error(errorMessage);
    }
 }
@@ -321,7 +318,7 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
     } else if (error instanceof Error) {
         errorMessage = `Error fetching result for ${matchId}: ${error.message}`;
     }
-    console.error("Detailed Error:", error); // Log the full error object
+    console.error("Detailed Error fetching match result:", error); // Log the raw error object
     throw new Error(errorMessage); // Re-throw with more context
   }
 }
@@ -370,7 +367,7 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
       } else if (error instanceof Error) {
         errorMessage = `Error updating result for ${result.matchId}: ${error.message}`;
       }
-    console.error("Detailed Error:", error);
+    console.error("Detailed Error updating match result:", error); // Log the raw error object
     throw new Error(errorMessage);
   }
 }

@@ -3,14 +3,24 @@
 // Ensure environment variables are loaded (especially in non-Next.js environments if applicable)
 // In Next.js, variables starting with NEXT_PUBLIC_ are automatically available client-side
 
+// const firebaseConfig = {
+//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+//   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+//   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+//   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+//   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+//   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+//   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
+// };
+
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
+  apiKey: "AIzaSyBSi_zzeTpxBghUDa8eMEWO7nA3XjPUwac",
+  authDomain: "kurukshetra-92c14.firebaseapp.com",
+  databaseURL: "https://kurukshetra-92c14-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "kurukshetra-92c14",
+  storageBucket: "kurukshetra-92c14.firebasestorage.app",
+  messagingSenderId: "205920675261",
+  appId: "1:205920675261:web:59dcea3b1cd875f90d9ed4"
 };
 
 export function getFirebaseConfig() {
