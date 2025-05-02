@@ -350,7 +350,7 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
         code: (error as any)?.code,
         message: (error as Error)?.message,
         stack: (error as Error)?.stack,
-        originalError: error
+        originalError: error // Log the original error object
     });
 
     throw new Error(errorMessage); // Re-throw with potentially more specific message
@@ -368,27 +368,27 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
   console.log("Updating/Creating match result in Firestore:", result);
   try {
      const firestoreDb = getDbInstance();
-    // Optional: Check if the corresponding event exists first
-    // const eventRef = doc(firestoreDb, 'sportsEvents', result.matchId);
-    // const eventSnap = await getDoc(eventRef);
-    // if (!eventSnap.exists()) {
-    //   console.error("Cannot update result for non-existent event:", result.matchId);
-    //   throw new Error(`Match event with ID ${result.matchId} not found.`);
-    // }
-
     const resultRef = doc(firestoreDb, 'matchResults', result.matchId); // Use matchId as document ID
 
-    // Prepare data for Firestore, ensuring optional field is handled
-    const dataToSet: MatchResult = {
-      ...result,
-      winningTeamPhotoUrl: result.winningTeamPhotoUrl || undefined, // Store undefined if empty/null
+    // Prepare data for Firestore, explicitly removing undefined photo URL if present
+    const dataToSet: Omit<MatchResult, 'winningTeamPhotoUrl'> & { winningTeamPhotoUrl?: string } = {
+      matchId: result.matchId,
+      team1Score: result.team1Score,
+      team2Score: result.team2Score,
+      winningTeam: result.winningTeam,
     };
+
+    // Only add winningTeamPhotoUrl if it has a valid, non-empty string value
+    if (result.winningTeamPhotoUrl && typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') {
+      dataToSet.winningTeamPhotoUrl = result.winningTeamPhotoUrl;
+    }
 
     // Use setDoc which creates or overwrites the document at the specified path
     await setDoc(resultRef, dataToSet);
 
     console.log("Updated/Created result for match ID:", result.matchId);
-    return dataToSet; // Return the data that was set
+    // Return the data that was set, ensuring the photo URL reflects what was stored
+    return { ...result, winningTeamPhotoUrl: dataToSet.winningTeamPhotoUrl };
   } catch (error: any) { // Use 'any' to check for 'code' property
     console.error(`Error updating match result for ID ${result.matchId}:`, error);
     let errorMessage = `Could not update result for match ID ${result.matchId}.`;
@@ -407,7 +407,7 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
          code: (error as any)?.code,
          message: (error as Error)?.message,
          stack: (error as Error)?.stack,
-         originalError: error
+         originalError: error // Log the original error object
       });
     throw new Error(errorMessage);
   }
