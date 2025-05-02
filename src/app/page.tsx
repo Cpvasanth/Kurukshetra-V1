@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { NextPage } from 'next';
@@ -35,7 +36,13 @@ const HomePage: NextPage = () => {
        if (timestamp instanceof Date) {
            return timestamp; // Already a Date object
        }
-       return timestamp.toDate();
+       // Add check for valid timestamp object
+       if (timestamp && typeof timestamp.toDate === 'function') {
+           return timestamp.toDate();
+       }
+       // Fallback or error handling for invalid timestamp
+       console.warn("Invalid timestamp received:", timestamp);
+       return new Date(); // Return current date as a fallback
    };
 
 
@@ -151,8 +158,8 @@ const HomePage: NextPage = () => {
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                {filteredResults.map((result) => {
                   const match = upcomingEvents.find(e => e.id === result.matchId);
-                  // Use a unique key combining prefix and id
-                  const cardKey = `result-${result.matchId}`;
+                  // Use a unique key combining prefix and id to prevent duplicates if result.matchId isn't guaranteed unique across sections
+                  const cardKey = `result-card-${result.matchId}`;
                   return (
                      <Card key={cardKey} className="overflow-hidden transition-shadow duration-300 hover:shadow-lg">
                       <CardHeader className="bg-secondary p-4">
