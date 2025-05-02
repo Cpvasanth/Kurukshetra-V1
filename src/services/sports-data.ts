@@ -135,13 +135,14 @@ export async function getSportsEvents(): Promise<SportsEvent[]> {
     });
     console.log("Fetched events:", events.length);
     return events;
-  } catch (error) {
+  } catch (error: any) { // Use 'any' to check for 'code' property
      console.error("Error fetching sports events: ", error);
       let errorMessage = "Could not fetch sports events.";
       // Check FirestoreError and specific codes
-      if (error instanceof FirestoreError) {
-        errorMessage = `Firestore error (${error.code}): ${error.message}`;
-        if (error.code === 'permission-denied') { // Use string code
+      if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+        const errorCode = error.code;
+        errorMessage = `Firestore error (${errorCode}): ${error.message}`;
+        if (errorCode === 'permission-denied') { // Use string code
            errorMessage = "Permission denied fetching events. Check Firestore security rules.";
         }
         // Add other specific Firestore error codes if needed
@@ -150,7 +151,12 @@ export async function getSportsEvents(): Promise<SportsEvent[]> {
         errorMessage = error.message;
       }
      // Log the detailed error object regardless of type
-     console.error("Detailed Error fetching sports events:", error); // Log the full error object
+     console.error("Detailed Error fetching sports events:", {
+         code: (error as any)?.code, // Use optional chaining
+         message: (error as Error)?.message, // Use optional chaining
+         stack: (error as Error)?.stack, // Use optional chaining
+         originalError: error // Log the original error object
+     });
      throw new Error(errorMessage); // Throw a more informative error
   }
 }
@@ -208,20 +214,26 @@ export async function createSportsEvent(eventData: {
      };
      console.log("Successfully created event:", newEvent);
      return newEvent;
-   } catch (error: any) {
+   } catch (error: any) { // Use 'any' to check for 'code' property
      console.error("Error creating sports event in Firestore:", error);
       let errorMessage = "Could not create sports event.";
       // Check FirestoreError and specific codes
-      if (error instanceof FirestoreError) {
-        errorMessage = `Firestore error (${error.code}): ${error.message}`;
-        if (error.code === 'permission-denied') { // Use string code
+      if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+        const errorCode = error.code;
+        errorMessage = `Firestore error (${errorCode}): ${error.message}`;
+        if (errorCode === 'permission-denied') { // Use string code
            errorMessage = "Permission denied creating event. Check Firestore security rules.";
         }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
       // Log the detailed error object regardless of type
-      console.error("Detailed Error creating sports event:", error); // Log the full error object
+      console.error("Detailed Error creating sports event:", {
+         code: (error as any)?.code, // Use optional chaining
+         message: (error as Error)?.message, // Use optional chaining
+         stack: (error as Error)?.stack, // Use optional chaining
+         originalError: error // Log the original error object
+      });
      throw new Error(errorMessage);
    }
 }
@@ -269,20 +281,26 @@ export async function updateSportsEvent(event: SportsEvent): Promise<SportsEvent
         date: jsDate.toISOString().split('T')[0], // Re-derive date string
         time: jsDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }), // Re-derive time string
      };
-   } catch (error) {
+   } catch (error: any) { // Use 'any' to check for 'code' property
      console.error("Error updating sports event: ", error);
      let errorMessage = `Could not update event with ID ${event.id}.`;
      // Check FirestoreError and specific codes
-     if (error instanceof FirestoreError) {
-         errorMessage = `Firestore error updating event ${event.id} (${error.code}): ${error.message}`;
-         if (error.code === 'permission-denied') { // Use string code
+     if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+         const errorCode = error.code;
+         errorMessage = `Firestore error updating event ${event.id} (${errorCode}): ${error.message}`;
+         if (errorCode === 'permission-denied') { // Use string code
              errorMessage = `Permission denied updating event ${event.id}. Check Firestore security rules.`;
          }
      } else if (error instanceof Error) {
          errorMessage = error.message;
      }
       // Log the detailed error object regardless of type
-      console.error(`Detailed Error updating sports event for ${event.id}:`, error); // Log the full error object
+      console.error(`Detailed Error updating sports event for ${event.id}:`, {
+         code: (error as any)?.code,
+         message: (error as Error)?.message,
+         stack: (error as Error)?.stack,
+         originalError: error
+      });
      throw new Error(errorMessage);
    }
 }
@@ -309,25 +327,31 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
       console.log(`No result found for match ${matchId}`);
       return null;
     }
-  } catch (error) {
-    console.error(`Error fetching match result for ID ${matchId}:`, error); // Log specific ID
+  } catch (error: any) { // Use 'any' to check for 'code' property
+    console.error(`Error fetching match result for ID ${matchId}:`, error);
     let errorMessage = `Could not fetch result for match ID ${matchId}.`;
 
     // Check FirestoreError and specific codes
-    if (error instanceof FirestoreError) {
-      if (error.code === 'permission-denied') {
-        // Highlight permission issue specifically
-        errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Please check Firestore security rules for the 'matchResults' collection.`;
-        console.error(errorMessage); // Log the specific permission error message
-      } else {
-         errorMessage = `Firestore error fetching result for ${matchId} (${error.code}): ${error.message}`;
-      }
+    if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+        const errorCode = error.code;
+        if (errorCode === 'permission-denied') {
+            // Highlight permission issue specifically
+            errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Please check Firestore security rules for the 'matchResults' collection.`;
+            console.error(errorMessage); // Log the specific permission error message
+        } else {
+            errorMessage = `Firestore error fetching result for ${matchId} (${errorCode}): ${error.message}`;
+        }
     } else if (error instanceof Error) {
-      errorMessage = `Error fetching result for ${matchId}: ${error.message}`;
+        errorMessage = `Error fetching result for ${matchId}: ${error.message}`;
     }
 
     // Log the detailed error object regardless of type
-    console.error(`Detailed Error fetching match result for ${matchId}:`, error); // Log the full error object
+    console.error(`Detailed Error fetching match result for ${matchId}:`, {
+        code: (error as any)?.code,
+        message: (error as Error)?.message,
+        stack: (error as Error)?.stack,
+        originalError: error
+    });
 
     throw new Error(errorMessage); // Re-throw with potentially more specific message
   }
@@ -365,20 +389,26 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
 
     console.log("Updated/Created result for match ID:", result.matchId);
     return dataToSet; // Return the data that was set
-  } catch (error) {
+  } catch (error: any) { // Use 'any' to check for 'code' property
     console.error(`Error updating match result for ID ${result.matchId}:`, error);
     let errorMessage = `Could not update result for match ID ${result.matchId}.`;
     // Check FirestoreError and specific codes
-      if (error instanceof FirestoreError) {
-        errorMessage = `Firestore error updating result for ${result.matchId} (${error.code}): ${error.message}`;
-        if (error.code === 'permission-denied') { // Use string code
+      if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+        const errorCode = error.code;
+        errorMessage = `Firestore error updating result for ${result.matchId} (${errorCode}): ${error.message}`;
+        if (errorCode === 'permission-denied') { // Use string code
            errorMessage = `Permission denied updating result for ${result.matchId}. Check Firestore security rules for 'matchResults'.`;
         }
       } else if (error instanceof Error) {
         errorMessage = `Error updating result for ${result.matchId}: ${error.message}`;
       }
       // Log the detailed error object regardless of type
-      console.error(`Detailed Error updating match result for ${result.matchId}:`, error); // Log the full error object
+      console.error(`Detailed Error updating match result for ${result.matchId}:`, {
+         code: (error as any)?.code,
+         message: (error as Error)?.message,
+         stack: (error as Error)?.stack,
+         originalError: error
+      });
     throw new Error(errorMessage);
   }
 }
