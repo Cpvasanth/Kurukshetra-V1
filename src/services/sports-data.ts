@@ -11,7 +11,8 @@ import {
   where,
   setDoc,
   orderBy,
-  Timestamp // Import Timestamp if storing dates as Firebase Timestamps
+  Timestamp, // Import Timestamp if storing dates as Firebase Timestamps
+  FirestoreErrorCode
 } from 'firebase/firestore';
 
 // Define specific sports and genders for consistency
@@ -153,7 +154,7 @@ export async function createSportsEvent(eventData: {
     time: string; // Expecting HH:MM
     teams: string[];
 }): Promise<SportsEvent> {
-   console.log("Attempting to create sports event in Firestore:", eventData);
+   console.log("Attempting to create sports event in Firestore with data:", eventData);
    try {
      const firestoreDb = getDbInstance();
      const eventsCollection = collection(firestoreDb, 'sportsEvents');
@@ -165,7 +166,7 @@ export async function createSportsEvent(eventData: {
          throw new Error("Invalid date/time format for creating Timestamp.");
      }
      const dateTimeStamp = Timestamp.fromDate(jsDate);
-     console.log("Generated Timestamp:", dateTimeStamp);
+     console.log("Generated Firestore Timestamp:", dateTimeStamp);
 
      // Data to be stored in Firestore (using the Timestamp)
      const dataToStore = {
@@ -177,6 +178,7 @@ export async function createSportsEvent(eventData: {
        dateTime: dateTimeStamp, // Store the combined Timestamp
      };
 
+     console.log("Data being sent to Firestore addDoc:", dataToStore);
      const docRef = await addDoc(eventsCollection, dataToStore);
      console.log("Document written with ID: ", docRef.id);
 
@@ -190,9 +192,20 @@ export async function createSportsEvent(eventData: {
      };
      console.log("Successfully created event:", newEvent);
      return newEvent;
-   } catch (error) {
-     console.error("Error creating sports event: ", error);
-     throw new Error("Could not create sports event.");
+   } catch (error: any) {
+     console.error("Error creating sports event in Firestore:", error);
+      let errorMessage = "Could not create sports event.";
+      if (error.code === 'permission-denied') {
+        errorMessage = "Permission denied. Check Firestore security rules.";
+      } else if (error instanceof Error) {
+        errorMessage = error.message; // Use the specific error message if available
+      }
+     console.error("Detailed Error:", {
+       code: error.code,
+       message: error.message,
+       stack: error.stack,
+     });
+     throw new Error(errorMessage);
    }
 }
 
@@ -310,3 +323,4 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
     throw new Error(`Could not update result for match ID ${result.matchId}.`);
   }
 }
+

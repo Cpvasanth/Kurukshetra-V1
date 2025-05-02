@@ -77,7 +77,7 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
   const onSubmit = async (data: MatchFormData) => {
     setIsLoading(true);
     setShowSuccess(false);
-    console.log('Submitting match data:', data);
+    console.log('Submitting match form data:', data);
 
     // Prepare data in the format expected by createSportsEvent
     const eventDataToSend = {
@@ -89,6 +89,8 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
         time: data.time, // Time as HH:MM string
         teams: [data.team1, data.team2],
     };
+
+    console.log('Data prepared for Firestore:', eventDataToSend); // Log data being sent
 
     try {
         // Use the actual createSportsEvent function from the service
@@ -118,7 +120,7 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
         console.error("Failed to create match in Firestore:", error);
          toast({
              title: "Error Creating Match",
-             description: error instanceof Error ? error.message : "Could not schedule the match. Please try again.",
+             description: error instanceof Error ? error.message : "Could not schedule the match. Please check Firestore rules and console logs.",
              variant: "destructive",
          });
     } finally {
