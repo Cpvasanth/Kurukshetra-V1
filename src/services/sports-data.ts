@@ -1,5 +1,4 @@
 
-
 import { db, isFirebaseInitialized } from '@/lib/firebase/client'; // Import Firestore instance and initialization check
 import {
   collection,
@@ -347,7 +346,6 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
       return null;
     }
   } catch (error: any) { // Use 'any' to check for 'code' property
-    console.error(`Error fetching match result for ID ${matchId}:`, error);
     let errorMessage = `Could not fetch result for match ID ${matchId}.`;
 
     // Check FirestoreError and specific codes
@@ -367,18 +365,17 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
     }
 
     // Log the detailed error object regardless of type
+    // Include the error object itself and its string representation
     console.error(`Detailed Error fetching match result for ${matchId}:`, {
         code: (error as any)?.code,
         message: (error as Error)?.message,
         stack: (error as Error)?.stack,
-        originalError: error // Log the original error object
+        rawError: error, // Log the raw error object
+        errorString: String(error), // Log the string representation
     });
 
-    // Return null for other errors as well to let the UI handle it,
-    // or throw if the error is critical and should halt execution.
-    // Consider the impact on the calling components (e.g., refreshData).
-    // throw new Error(errorMessage); // Re-throw if necessary
-    return null; // Return null for other fetch errors too
+    // Return null for other fetch errors as well to let the UI handle it.
+    return null;
   }
 }
 
@@ -400,32 +397,24 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
     const resultRef = doc(firestoreDb, 'matchResults', result.matchId); // Use matchId as document ID
 
     // Prepare data for Firestore. Explicitly handle winningTeamPhotoUrl.
-    // Firestore cannot store 'undefined'. If the URL is empty, null, or undefined,
-    // it should either be omitted or explicitly set to null if your app logic requires it.
-    // Here, we omit it if it's falsy (empty string, null, undefined).
-    const dataToSet: Partial<MatchResult> = { // Make fields optional for update
+    const dataToSet: any = { // Use 'any' temporarily or create a specific type
       matchId: result.matchId,
-      team1Score: result.team1Score ?? 0, // Default score to 0 if null/undefined
-      team2Score: result.team2Score ?? 0, // Default score to 0 if null/undefined
-      winningTeam: result.winningTeam ?? 'N/A', // Default winner if null/undefined
+      team1Score: result.team1Score ?? 0,
+      team2Score: result.team2Score ?? 0,
+      winningTeam: result.winningTeam ?? 'N/A',
     };
 
     // Only add winningTeamPhotoUrl if it's a non-empty string
     if (result.winningTeamPhotoUrl && typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') {
       dataToSet.winningTeamPhotoUrl = result.winningTeamPhotoUrl;
     } else {
-      // If photoUrl is empty/null/undefined, ensure it's not set as undefined
-      // We can omit it, or explicitly set to null if needed by schema/logic
-      // Omiting is safer if `undefined` causes issues.
-      // delete dataToSet.winningTeamPhotoUrl; // Alternative: explicitly remove
-       // If you need to REMOVE the field, use updateDoc with deleteField()
-       // For simplicity here, we just don't add it if it's empty/invalid.
+      // Explicitly set to null if it's empty/null/undefined to avoid Firestore error
+      dataToSet.winningTeamPhotoUrl = null;
     }
 
     console.log("Data being sent to Firestore setDoc:", dataToSet);
 
     // Use setDoc with merge: true to create or update specified fields
-    // This won't delete existing fields not included in dataToSet
     await setDoc(resultRef, dataToSet, { merge: true });
 
     console.log("Updated/Created result for match ID:", result.matchId);
@@ -438,7 +427,8 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
              team1Score: updatedData.team1Score ?? 0,
              team2Score: updatedData.team2Score ?? 0,
              winningTeam: updatedData.winningTeam ?? 'N/A',
-             winningTeamPhotoUrl: updatedData.winningTeamPhotoUrl ?? undefined, // Reflect actual state
+             // Ensure we return undefined if the photo URL is null or missing from Firestore
+             winningTeamPhotoUrl: updatedData.winningTeamPhotoUrl || undefined,
          };
     } else {
         // Should not happen after setDoc, but handle defensively
