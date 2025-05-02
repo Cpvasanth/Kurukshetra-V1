@@ -1,4 +1,5 @@
 
+
 import { db, isFirebaseInitialized } from '@/lib/firebase/client'; // Import Firestore instance and initialization check
 import {
   collection,
@@ -354,7 +355,7 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
         if (errorCode === 'permission-denied') {
             // Highlight permission issue specifically
             errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Please check Firestore security rules for the 'matchResults' collection.`;
-            console.error(errorMessage); // Log the specific permission error message
+            // console.error(errorMessage); // Comment out the console error for permission denied as we return null
             // ****** Return null instead of throwing on permission denied ******
             return null;
         } else {
@@ -408,7 +409,7 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
     if (result.winningTeamPhotoUrl && typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') {
       dataToSet.winningTeamPhotoUrl = result.winningTeamPhotoUrl;
     } else {
-      // Explicitly set to null if it's empty/null/undefined to avoid Firestore error
+      // Explicitly set to null if it's empty/null/undefined to avoid Firestore error with merge: true
       dataToSet.winningTeamPhotoUrl = null;
     }
 
