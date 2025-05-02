@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -38,16 +39,30 @@ export default function SchedulePage() {
       try {
         setLoadingEvents(true);
         setLoadingResults(true);
+        console.log("SchedulePage: Fetching events...");
         const fetchedEvents = await getSportsEvents(); // Fetches ordered events from Firestore
         setAllEvents(fetchedEvents);
+         console.log("SchedulePage: Fetched events count:", fetchedEvents.length);
 
+
+        console.log("SchedulePage: Fetching results...");
         // Fetch results to identify completed matches
-        const resultsPromises = fetchedEvents.map(event => getMatchResult(event.id));
+        const resultsPromises = fetchedEvents.map(async (event) => {
+            try {
+                return await getMatchResult(event.id);
+            } catch (error) {
+                console.error(`SchedulePage: Failed to fetch result for event ${event.id}:`, error);
+                // If fetching a specific result fails, treat it as if no result exists for filtering purposes
+                return null;
+            }
+        });
         const fetchedResults = (await Promise.all(resultsPromises)).filter(r => r !== null) as MatchResult[];
         setResults(fetchedResults);
+        console.log("SchedulePage: Fetched results count:", fetchedResults.length);
+
 
       } catch (error) {
-        console.error("Failed to load schedule data:", error);
+        console.error("SchedulePage: Failed to load schedule data:", error);
          toast({
              title: "Error Loading Data",
              description: "Could not fetch matches or results. Please try again later.",
@@ -56,6 +71,7 @@ export default function SchedulePage() {
       } finally {
         setLoadingEvents(false);
         setLoadingResults(false);
+        console.log("SchedulePage: Data loading complete.");
       }
     }
     loadData();
@@ -116,3 +132,4 @@ export default function SchedulePage() {
     </div>
   );
 }
+

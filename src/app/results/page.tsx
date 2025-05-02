@@ -1,4 +1,5 @@
 
+
 'use client';
 
  import { useState, useEffect } from 'react';
@@ -57,27 +58,36 @@
 
          console.log("ResultsPage: Fetching results...");
          // Fetch results for all events concurrently
-         const resultsPromises = fetchedEvents.map(event => getMatchResult(event.id));
-         const fetchedResults = (await Promise.all(resultsPromises))
-            .filter(r => r !== null) as MatchResult[];
-         console.log("ResultsPage: Fetched results count:", fetchedResults.length);
+         const resultsPromises = fetchedEvents.map(async (event) => {
+            try {
+                const result = await getMatchResult(event.id);
+                 // Include event details with the result for sorting
+                 return result ? { ...result, eventDetails: event } : null;
+            } catch (error) {
+                console.error(`ResultsPage: Failed to fetch result for event ${event.id}:`, error);
+                return null; // Return null if fetching a specific result fails
+            }
+         });
+         const fetchedResultsWithDetails = (await Promise.all(resultsPromises))
+            .filter(r => r !== null) as (MatchResult & { eventDetails: SportsEvent })[]; // Filter out nulls safely
+         console.log("ResultsPage: Fetched results count:", fetchedResultsWithDetails.length);
 
 
-         // Sort results by match date (descending - most recent first) using timestamp
-         fetchedResults.sort((a, b) => {
-             const matchA = fetchedEvents.find(e => e.id === a.matchId);
-             const matchB = fetchedEvents.find(e => e.id === b.matchId);
-             if (!matchA || !matchB) return 0; // Should not happen if data is consistent
-             const timeA = getDateFromTimestamp(matchA.dateTime)?.getTime() ?? 0; // Use nullish coalescing
-             const timeB = getDateFromTimestamp(matchB.dateTime)?.getTime() ?? 0;
+         // Sort results by match date (descending - most recent first) using timestamp from eventDetails
+         fetchedResultsWithDetails.sort((a, b) => {
+             if (!a.eventDetails || !b.eventDetails) return 0; // Should not happen if data is consistent
+             const timeA = getDateFromTimestamp(a.eventDetails.dateTime)?.getTime() ?? 0; // Use nullish coalescing
+             const timeB = getDateFromTimestamp(b.eventDetails.dateTime)?.getTime() ?? 0;
              return timeB - timeA; // Descending order
          });
 
-         setResults(fetchedResults);
+         // Remove eventDetails before setting state
+        const finalResults = fetchedResultsWithDetails.map(({ eventDetails, ...result }) => result);
+         setResults(finalResults);
          console.log("ResultsPage: Data loading complete.");
 
        } catch (error) {
-         console.error("Failed to load results data:", error);
+         console.error("ResultsPage: Failed to load results data:", error);
           toast({
             title: "Error Loading Results",
             description: "Could not fetch match results. Please try again later.",
@@ -127,17 +137,20 @@
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              {filteredResults.map((result, index) => {
                const match = events.find(e => e.id === result.matchId);
-               // Match should always exist based on filter logic, but add a check for safety
+               // Match should ideally always exist based on filter logic, but add a check for safety
                if (!match) {
-                  console.warn("Could not find match details for result:", result);
-                  return null;
+                  console.warn("ResultsPage: Could not find match details for result:", result);
+                  return null; // Don't render card if match details missing
                }
 
                const matchDate = getDateFromTimestamp(match.dateTime);
+               // Ensure photoUrl is a valid string before using it
+               const photoUrl = (typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') ? result.winningTeamPhotoUrl : null;
+
 
                 return (
                    <Card
-                     key={result.matchId} // Use matchId as the key
+                     key={result.matchId || `result-${index}`} // Use matchId as the key, fallback to index
                      className="overflow-hidden transition-all duration-500 ease-out hover:shadow-xl animate-fade-in flex flex-col" // Added flex flex-col
                      style={{ animationDelay: `${index * 100}ms` }}
                    >
@@ -157,16 +170,18 @@
                         </CardDescription>
                      </CardHeader>
                      <CardContent className="p-4 space-y-3 flex-grow"> {/* Added flex-grow */}
-                       {result.winningTeamPhotoUrl && (
+                       {photoUrl && ( // Only render Image if photoUrl is valid
                           <div className="relative h-32 w-full rounded-md overflow-hidden mb-3">
                             <Image
-                              src={result.winningTeamPhotoUrl}
+                              src={photoUrl}
                               alt={`${result.winningTeam} winning moment`}
                               fill // Use fill layout
                               style={{ objectFit: 'cover' }} // Use style for objectFit
                               data-ai-hint="winning team photo"
                               className="transition-transform duration-300 hover:scale-105"
                               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Add sizes prop
+                              // Add error handling for the image
+                              onError={(e) => { console.error("Image failed to load:", photoUrl, e); (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                           </div>
                        )}
@@ -177,7 +192,8 @@
                             // Adjusted styling for score badges
                             className={`text-lg px-3 py-1 ${result.winningTeam === match.teams[0] ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground border'}`}
                          >
-                           {result.team1Score}
+                            {/* Display score safely */}
+                           {typeof result.team1Score === 'number' ? result.team1Score : '-'}
                          </Badge>
                        </div>
                        <div className="flex justify-between items-center font-medium">
@@ -186,12 +202,14 @@
                              variant={result.winningTeam === match.teams[1] ? 'default' : 'outline'}
                              className={`text-lg px-3 py-1 ${result.winningTeam === match.teams[1] ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground border'}`}
                          >
-                           {result.team2Score}
+                            {/* Display score safely */}
+                            {typeof result.team2Score === 'number' ? result.team2Score : '-'}
                          </Badge>
                        </div>
                        <div className="flex items-center justify-center pt-2 text-center border-t border-border mt-3">
                          <Trophy className="w-5 h-5 mr-2 text-yellow-500" />
-                         <span className="font-semibold text-green-600">{result.winningTeam} wins!</span>
+                          {/* Display winning team safely */}
+                         <span className="font-semibold text-green-600">{result.winningTeam || 'N/A'} wins!</span>
                        </div>
                      </CardContent>
                    </Card>
@@ -218,3 +236,4 @@
      </div>
    );
  }
+

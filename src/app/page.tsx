@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { NextPage } from 'next';
@@ -21,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Timestamp } from 'firebase/firestore'; // Import Timestamp type
 
 // Helper to get the appropriate icon for gender
-const getGenderIcon = (gender: string) => {
+const getGenderIcon = (gender: string | undefined) => { // Allow undefined
     switch (gender?.toLowerCase()) { // Add nullish coalescing and toLowerCase for safety
         case 'boys': return <User className="w-4 h-4 shrink-0" />; // Using User icon for Boys
         case 'girls': return <UserRound className="w-4 h-4 shrink-0" />; // Using UserRound icon for Girls
@@ -64,29 +65,47 @@ const HomePage: NextPage = () => {
         setLoadingEvents(true);
         setLoadingResults(true); // Start loading results as well
 
+        console.log("HomePage: Fetching events...");
         const events = await getSportsEvents(); // Fetches from Firestore
         setAllEvents(events); // Store all events
+        console.log("HomePage: Fetched events count:", events.length);
 
+
+        console.log("HomePage: Fetching results...");
         // Fetch results concurrently for all fetched events
-        const resultsPromises = events.map(event => getMatchResult(event.id));
-        const fetchedResults = (await Promise.all(resultsPromises)).filter(r => r !== null) as MatchResult[];
+        const resultsPromises = events.map(async (event) => {
+            try {
+                const result = await getMatchResult(event.id);
+                // Include event details with the result for sorting and filtering
+                return result ? { ...result, eventDetails: event } : null;
+            } catch (error) {
+                console.error(`HomePage: Failed to fetch result for event ${event.id}:`, error);
+                // Return null if fetching a specific result fails, allowing others to proceed
+                return null;
+            }
+        });
+        const fetchedResultsWithDetails = (await Promise.all(resultsPromises))
+            .filter(r => r !== null) as (MatchResult & { eventDetails: SportsEvent })[]; // Filter out nulls safely
 
-         // Sort results by descending match date/time using the timestamp from the event
-         fetchedResults.sort((a, b) => {
-             const matchA = events.find(e => e.id === a.matchId);
-             const matchB = events.find(e => e.id === b.matchId);
-             // Handle cases where match might not be found (though unlikely if data is consistent)
-             if (!matchA || !matchB) return 0;
-             const timeA = getDateFromTimestamp(matchA.dateTime)?.getTime() ?? 0; // Use nullish coalescing
-             const timeB = getDateFromTimestamp(matchB.dateTime)?.getTime() ?? 0;
+        console.log("HomePage: Fetched results count (before sorting):", fetchedResultsWithDetails.length);
+
+         // Sort results by descending match date/time using the timestamp from the event details
+         fetchedResultsWithDetails.sort((a, b) => {
+             // eventDetails should always exist here due to filtering
+             const timeA = getDateFromTimestamp(a.eventDetails.dateTime)?.getTime() ?? 0; // Use nullish coalescing
+             const timeB = getDateFromTimestamp(b.eventDetails.dateTime)?.getTime() ?? 0;
              return timeB - timeA; // Descending order
          });
 
 
-        setLatestResults(fetchedResults);
+        // Remove the eventDetails before setting state if not needed in MatchResult type
+        const finalResults = fetchedResultsWithDetails.map(({ eventDetails, ...result }) => result);
+        setLatestResults(finalResults);
+         console.log("HomePage: Final results count:", finalResults.length);
+
 
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        console.error("HomePage: Failed to fetch data:", error);
          toast({
             title: "Error Fetching Data",
             description: "Could not load matches or results. Please try again later.",
@@ -95,6 +114,7 @@ const HomePage: NextPage = () => {
       } finally {
         setLoadingEvents(false); // Events loading finished
         setLoadingResults(false); // Results loading finished
+        console.log("HomePage: Data fetching complete.");
       }
     }
     fetchData();
@@ -186,7 +206,12 @@ const HomePage: NextPage = () => {
                {filteredResults.map((result) => {
                   const match = allEvents.find(e => e.id === result.matchId);
                   // Use a unique key combining prefix and id
-                  const cardKey = `result-card-${result.matchId}`;
+                  const cardKey = `result-card-${result.matchId || Math.random()}`; // Fallback key if matchId is somehow missing
+                  if (!match) {
+                    // If match details aren't found (data inconsistency), skip rendering this result card
+                     console.warn(`Match details not found for result with matchId: ${result.matchId}. Skipping card.`);
+                     return null;
+                  }
                   const matchDate = getDateFromTimestamp(match?.dateTime); // Get JS Date or null
 
                   return (
@@ -194,7 +219,7 @@ const HomePage: NextPage = () => {
                       <CardHeader className="bg-secondary p-4">
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-lg font-semibold text-secondary-foreground truncate mr-2">
-                            {match?.matchTitle || `Match ${result.matchId}`}
+                             {match.matchTitle}
                             </CardTitle>
                             {match && (
                                 <Badge variant="outline" className="text-xs shrink-0 capitalize">{match.sport}</Badge>
@@ -212,16 +237,18 @@ const HomePage: NextPage = () => {
                       </CardHeader>
                       <CardContent className="p-4 space-y-3">
                         <div className="flex justify-between items-center font-medium">
-                           <span className="truncate">{match?.teams[0] || 'Team 1'}</span>
-                          <Badge variant={result.winningTeam === (match?.teams[0] || 'Team 1') ? 'default' : 'outline'} className="text-lg px-3 py-1">{result.team1Score}</Badge>
+                           <span className="truncate">{match.teams[0]}</span>
+                           {/* Ensure scores are numbers before displaying */}
+                           <Badge variant={result.winningTeam === match.teams[0] ? 'default' : 'outline'} className="text-lg px-3 py-1">{typeof result.team1Score === 'number' ? result.team1Score : '-'}</Badge>
                          </div>
                          <div className="flex justify-between items-center font-medium">
-                           <span className="truncate">{match?.teams[1] || 'Team 2'}</span>
-                           <Badge variant={result.winningTeam === (match?.teams[1] || 'Team 2') ? 'default' : 'outline'} className="text-lg px-3 py-1">{result.team2Score}</Badge>
+                           <span className="truncate">{match.teams[1]}</span>
+                            <Badge variant={result.winningTeam === match.teams[1] ? 'default' : 'outline'} className="text-lg px-3 py-1">{typeof result.team2Score === 'number' ? result.team2Score : '-'}</Badge>
                          </div>
                          <div className="flex items-center justify-center pt-2 text-center border-t mt-3">
                            <Trophy className="w-5 h-5 mr-2 text-yellow-500" />
-                           <span className="font-semibold text-green-600">{result.winningTeam} wins!</span>
+                            {/* Ensure winningTeam is a string */}
+                           <span className="font-semibold text-green-600">{result.winningTeam || 'N/A'} wins!</span>
                          </div>
                       </CardContent>
                     </Card>
@@ -246,3 +273,4 @@ const HomePage: NextPage = () => {
 };
 
 export default HomePage;
+
