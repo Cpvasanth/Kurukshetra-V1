@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'; // Added SheetHeader, SheetTitle
 import { Menu, X, Trophy, LogIn, LogOut, Loader2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -26,13 +26,13 @@ const AnimatedLogo = () => {
     <Link href="/" className="flex items-center gap-2">
        <Trophy
         className={cn(
-          'h-8 w-8 text-primary transition-all duration-1000 ease-out',
+          'h-8 w-8 text-accent transition-all duration-1000 ease-out', // Use accent color for trophy
           visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
         )}
       />
       <span
         className={cn(
-          'text-2xl font-bold text-primary transition-all duration-1000 ease-out delay-200',
+          'text-2xl font-bold text-primary-foreground transition-all duration-1000 ease-out delay-200', // Use foreground color for text
           visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'
         )}
       >
@@ -57,6 +57,7 @@ export function Header() {
      if (firebaseInitializationError) {
         // If Firebase failed to initialize, don't attempt to use auth
         setAuthLoading(false);
+        console.warn("Firebase initialization failed. Auth features will be limited.");
         return;
      }
      // Ensure auth is initialized before subscribing
@@ -69,13 +70,17 @@ export function Header() {
         return () => unsubscribe();
      } else {
         // Auth is null, likely due to initialization error handled above
+         console.warn("Firebase Auth instance is not available in Header.");
         setAuthLoading(false);
      }
 
    }, []);
 
    const handleSignOut = async () => {
-     if (!auth) return; // Prevent sign out if auth not initialized
+     if (!auth) {
+        toast({ title: "Error", description: "Auth service unavailable.", variant: "destructive" });
+        return;
+     }
      try {
        await signOut(auth);
        toast({ title: "Signed Out", description: "Logged out successfully." });
@@ -114,7 +119,7 @@ export function Header() {
     );
 
     const desktopAuthAction = authLoading ? (
-      <Loader2 className="h-5 w-5 animate-spin" /> // Show loader while checking auth
+      <Loader2 className="h-5 w-5 animate-spin text-primary-foreground" /> // Show loader while checking auth
     ) : user ? (
       <>
         <Link
@@ -156,17 +161,21 @@ export function Header() {
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
+            {/* Added SheetHeader and SheetTitle for accessibility */}
             <SheetContent side="right" className="w-[250px] bg-primary text-primary-foreground p-4 flex flex-col">
-              <div className="flex justify-between items-center mb-6">
+               <SheetHeader className="flex flex-row justify-between items-center mb-6">
+                 {/* Visually hidden title for screen readers */}
+                 <SheetTitle className="sr-only">Main Menu</SheetTitle>
+                 {/* Visual Logo in Sheet */}
                  <Link href="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
                     <Trophy className="h-6 w-6 text-accent" />
-                     <span className="text-xl font-bold text-accent">Kurukshetra</span> {/* Updated Name */}
+                     <span className="text-xl font-bold text-accent">Kurukshetra</span>
                  </Link>
-                <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-primary-foreground hover:bg-primary/90">
-                  <X className="h-6 w-6" />
-                  <span className="sr-only">Close menu</span>
-                </Button>
-              </div>
+                 <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-primary-foreground hover:bg-primary/90">
+                   <X className="h-6 w-6" />
+                   <span className="sr-only">Close menu</span>
+                 </Button>
+               </SheetHeader>
               <nav className="flex flex-col space-y-4 flex-grow">
                 {allNavLinks.map((link) => (
                   <Link
@@ -181,7 +190,7 @@ export function Header() {
                  {/* Spacer */}
                  <div className="flex-grow"></div>
                  {/* Auth Action */}
-                 {authLoading ? <Loader2 className="h-5 w-5 animate-spin self-start mt-4" /> : mobileAuthAction}
+                 {authLoading ? <Loader2 className="h-5 w-5 animate-spin self-start mt-4 text-primary-foreground" /> : mobileAuthAction}
               </nav>
             </SheetContent>
           </Sheet>
