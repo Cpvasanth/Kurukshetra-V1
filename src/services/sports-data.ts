@@ -143,6 +143,8 @@ export async function getSportsEvents(): Promise<SportsEvent[]> {
         if (error.code === 'permission-denied') { // Use string code
            errorMessage = "Permission denied fetching events. Check Firestore security rules.";
         }
+        // Add other specific Firestore error codes if needed
+        // else if (error.code === 'unavailable') { ... }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -217,7 +219,7 @@ export async function createSportsEvent(eventData: {
         errorMessage = error.message;
       }
      console.error("Detailed Error:", {
-       code: error.code,
+       code: (error as any).code, // Attempt to get code if available
        message: error.message,
        stack: error.stack,
      });
