@@ -378,11 +378,11 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
         originalError: error, // Log the raw error object
     });
 
-    // Return null for other fetch errors as well to let the UI handle it.
-    // Throwing here might prevent the dashboard/other pages from loading if one result fails.
-    // Consider if throwing or returning null is better for your UI/UX.
-    // For now, return null to avoid breaking the entire page load.
-    return null;
+     // Return null for other fetch errors as well to let the UI handle it.
+     // Throwing here might prevent the dashboard/other pages from loading if one result fails.
+     // Consider if throwing or returning null is better for your UI/UX.
+     // For now, return null to avoid breaking the entire page load.
+     return null;
   }
 }
 
@@ -406,22 +406,19 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
 
     // Prepare data for Firestore. Explicitly handle winningTeamPhotoUrl.
     // Use a type that reflects the structure being sent to Firestore.
-    type FirestoreResultData = {
-        matchId: string;
-        team1Score: number;
-        team2Score: number;
-        winningTeam: string;
-        winningTeamPhotoUrl: string | null; // Explicitly allow null
-    }
-
-    const dataToSet: FirestoreResultData = {
+    // Ensure no undefined values are sent, as Firestore doesn't support them directly.
+    const dataToSet: { [key: string]: any } = { // Use a generic object type for flexibility
       matchId: result.matchId,
       team1Score: result.team1Score ?? 0,
       team2Score: result.team2Score ?? 0,
       winningTeam: result.winningTeam ?? 'N/A',
-      // Set to null if undefined, empty string, or not a string. Avoids Firestore error.
-      winningTeamPhotoUrl: (typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') ? result.winningTeamPhotoUrl : null,
-    };
+       // Only include winningTeamPhotoUrl if it's a non-empty string
+       ...(typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '' && { winningTeamPhotoUrl: result.winningTeamPhotoUrl }),
+     };
+
+     // Alternatively, explicitly set to null if not present or empty
+     // dataToSet.winningTeamPhotoUrl = (typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') ? result.winningTeamPhotoUrl : null;
+
 
     console.log("Data being sent to Firestore setDoc:", dataToSet);
 
@@ -432,15 +429,15 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
     // Fetch the updated doc to return the actual stored state
     const updatedDocSnap = await getDoc(resultRef);
     if (updatedDocSnap.exists()) {
-        const updatedData = updatedDocSnap.data() as FirestoreResultData; // Assert the type
+        const updatedData = updatedDocSnap.data(); // No need to assert specific type here, just get data
          return {
              matchId: updatedDocSnap.id,
-             team1Score: updatedData.team1Score ?? 0,
-             team2Score: updatedData.team2Score ?? 0,
-             winningTeam: updatedData.winningTeam ?? 'N/A',
+             team1Score: updatedData?.team1Score ?? 0, // Use optional chaining and default
+             team2Score: updatedData?.team2Score ?? 0,
+             winningTeam: updatedData?.winningTeam ?? 'N/A',
              // Ensure we return undefined if the photo URL is null or missing from Firestore
-             winningTeamPhotoUrl: updatedData.winningTeamPhotoUrl || undefined,
-         };
+             winningTeamPhotoUrl: updatedData?.winningTeamPhotoUrl || undefined,
+         } as MatchResult; // Assert the final return type
     } else {
         // Should not happen after setDoc, but handle defensively
         console.error(`Failed to retrieve updated result after setDoc for match ID: ${result.matchId}`);
@@ -458,9 +455,13 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
            // Make the error message clearer about needing to check rules
            errorMessage = `Permission denied updating result for ${result.matchId}. Check Firestore security rules for 'matchResults'.`;
            console.error("PERMISSION ERROR:", errorMessage); // Explicitly log permission error
+            // ****** Don't re-throw permission errors, just log and return original data? Or throw a specific error type? ******
+            // Throwing might be better here to indicate the operation truly failed.
+           throw new Error(errorMessage);
         } else if (errorCode === 'invalid-argument') { // Check for invalid data error
            errorMessage = `Invalid data provided for match result ${result.matchId}. Check field values (especially photo URL). Error: ${error.message}`;
            console.error("INVALID DATA ERROR:", errorMessage, "Data Sent:", result); // Log the data that caused the error
+           throw new Error(errorMessage); // Re-throw invalid data error
         }
       } else if (error instanceof Error) {
         errorMessage = `Error updating result for ${result.matchId}: ${error.message}`;
@@ -472,6 +473,7 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
          stack: (error as Error)?.stack,
          originalError: error // Log the original error object
       });
+    // Re-throw any other unexpected errors
     throw new Error(errorMessage);
   }
 }
