@@ -1,4 +1,5 @@
 
+
 'use client';
 
  import { useState, useEffect } from 'react';
@@ -8,7 +9,7 @@
  import { Skeleton } from '@/components/ui/skeleton';
  import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
  import { Badge } from '@/components/ui/badge';
- import { Trophy, Loader2, Female, Male, UserCheck, Users } from 'lucide-react'; // Added gender icons
+ import { Trophy, Loader2, Users, User, UserRound } from 'lucide-react'; // Replaced Female, Male, UserCheck with User, UserRound, Users
  import { format } from 'date-fns';
  import Image from 'next/image'; // Import next/image
  import { useToast } from '@/hooks/use-toast';
@@ -17,9 +18,9 @@
  // Helper to get the appropriate icon for gender
  const getGenderIcon = (gender: string) => {
      switch (gender) {
-         case 'Boys': return <Male className="w-4 h-4 shrink-0" />;
-         case 'Girls': return <Female className="w-4 h-4 shrink-0" />;
-         case 'Mixed': return <UserCheck className="w-4 h-4 shrink-0" />;
+         case 'Boys': return <User className="w-4 h-4 shrink-0" />; // Using User icon for Boys
+         case 'Girls': return <UserRound className="w-4 h-4 shrink-0" />; // Using UserRound icon for Girls
+         case 'Mixed': return <Users className="w-4 h-4 shrink-0" />; // Using Users icon for Mixed
          default: return <Users className="w-4 h-4 shrink-0" />; // Fallback
      }
  }
@@ -126,7 +127,7 @@
                 return (
                    <Card
                      key={result.matchId}
-                     className="overflow-hidden transition-all duration-500 ease-out hover:shadow-xl animate-fade-in"
+                     className="overflow-hidden transition-all duration-500 ease-out hover:shadow-xl animate-fade-in flex flex-col" // Added flex flex-col
                      style={{ animationDelay: `${index * 100}ms` }}
                    >
                      <CardHeader className="p-4 bg-secondary">
@@ -143,7 +144,7 @@
                             {getGenderIcon(match.gender)} {match.gender}
                         </CardDescription>
                      </CardHeader>
-                     <CardContent className="p-4 space-y-3">
+                     <CardContent className="p-4 space-y-3 flex-grow"> {/* Added flex-grow */}
                        {result.winningTeamPhotoUrl && (
                           <div className="relative h-32 w-full rounded-md overflow-hidden mb-3">
                             <Image

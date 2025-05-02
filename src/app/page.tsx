@@ -17,16 +17,16 @@ import type { SportsEvent, MatchResult } from '@/services/sports-data';
 import { getSportsEvents, getMatchResult } from '@/services/sports-data'; // Use Firestore functions
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Clock, Calendar, Users, Trophy, Loader2, Female, Male, UserCheck } from 'lucide-react'; // Added gender icons
+import { Clock, Calendar, Users, Trophy, Loader2, User, UserRound } from 'lucide-react'; // Replaced Female, Male, UserCheck with User, UserRound, Users
 import { useToast } from '@/hooks/use-toast';
 import type { Timestamp } from 'firebase/firestore'; // Import Timestamp type
 
 // Helper to get the appropriate icon for gender
 const getGenderIcon = (gender: string) => {
     switch (gender) {
-        case 'Boys': return <Male className="w-4 h-4 shrink-0" />;
-        case 'Girls': return <Female className="w-4 h-4 shrink-0" />;
-        case 'Mixed': return <UserCheck className="w-4 h-4 shrink-0" />;
+        case 'Boys': return <User className="w-4 h-4 shrink-0" />; // Using User icon for Boys
+        case 'Girls': return <UserRound className="w-4 h-4 shrink-0" />; // Using UserRound icon for Girls
+        case 'Mixed': return <Users className="w-4 h-4 shrink-0" />; // Using Users icon for Mixed
         default: return <Users className="w-4 h-4 shrink-0" />; // Fallback
     }
 }
