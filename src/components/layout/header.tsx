@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'; // Added SheetHeader, SheetTitle
-import { Menu, X, Trophy, LogIn, LogOut, Loader2 } from 'lucide-react';
+import { Menu, X, Trophy, LogIn, LogOut, Loader2, Gauge } from 'lucide-react'; // Added Gauge for dashboard
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { getAuth, onAuthStateChanged, signOut, User } from 'firebase/auth';
@@ -100,7 +100,7 @@ export function Header() {
   ];
 
   // Determine Admin link/button based on auth state
-   const adminLink = user
+   const desktopAdminLink = user
      ? { href: '/admin/dashboard', label: 'Admin Dashboard' }
      : { href: '/admin', label: 'Admin Login' };
 
@@ -123,11 +123,11 @@ export function Header() {
     ) : user ? (
       <>
         <Link
-            key={adminLink.href}
-            href={adminLink.href}
+            key={desktopAdminLink.href}
+            href={desktopAdminLink.href}
             className="text-sm font-medium hover:text-accent transition-colors duration-200 ease-in-out transform hover:scale-105"
         >
-            {adminLink.label}
+            {desktopAdminLink.label}
         </Link>
         <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-primary-foreground hover:bg-primary/90 hover:text-accent">
           <LogOut className="h-4 w-4" />
@@ -136,11 +136,11 @@ export function Header() {
       </>
     ) : (
        <Link
-         key={adminLink.href}
-         href={adminLink.href}
+         key={desktopAdminLink.href}
+         href={desktopAdminLink.href}
          className="text-sm font-medium hover:text-accent transition-colors duration-200 ease-in-out transform hover:scale-105"
        >
-         {adminLink.label}
+         {desktopAdminLink.label}
        </Link>
     );
 
@@ -161,12 +161,9 @@ export function Header() {
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
-            {/* Added SheetHeader and SheetTitle for accessibility */}
             <SheetContent side="right" className="w-[250px] bg-primary text-primary-foreground p-4 flex flex-col">
                <SheetHeader className="flex flex-row justify-between items-center mb-6">
-                 {/* Visually hidden title for screen readers */}
-                 <SheetTitle className="sr-only">Main Menu</SheetTitle>
-                 {/* Visual Logo in Sheet */}
+                 <SheetTitle className="sr-only">Main Menu</SheetTitle> {/* Visually hidden */}
                  <Link href="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
                     <Trophy className="h-6 w-6 text-accent" />
                      <span className="text-xl font-bold text-accent">Kurukshetra</span>
@@ -187,6 +184,17 @@ export function Header() {
                     {link.label}
                   </Link>
                 ))}
+                {/* Conditionally add Admin Dashboard link */}
+                {user && (
+                   <Link
+                      key="/admin/dashboard"
+                      href="/admin/dashboard"
+                      className="text-lg hover:text-accent transition-colors flex items-center"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <Gauge className="mr-2 h-5 w-5" /> Admin Dashboard
+                    </Link>
+                )}
                  {/* Spacer */}
                  <div className="flex-grow"></div>
                  {/* Auth Action */}
