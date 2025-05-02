@@ -148,7 +148,13 @@ export async function getSportsEvents(): Promise<SportsEvent[]> {
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-     console.error("Detailed Error fetching sports events:", error); // Log the full error object
+     // Log the detailed error object regardless of type
+     console.error("Detailed Error fetching sports events:", {
+       code: (error as any).code, // Attempt to get code if available
+       message: (error as Error).message,
+       stack: (error as Error).stack,
+       errorObject: error // Log the full error object
+     });
      throw new Error(errorMessage); // Throw a more informative error
   }
 }
@@ -218,8 +224,13 @@ export async function createSportsEvent(eventData: {
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-      // Log the raw error object for better inspection
-      console.error("Detailed Error creating sports event:", error);
+      // Log the detailed error object regardless of type
+      console.error("Detailed Error creating sports event:", {
+        code: (error as any).code, // Attempt to get code if available
+        message: error.message,
+        stack: error.stack,
+        errorObject: error // Log the full error object
+      });
      throw new Error(errorMessage);
    }
 }
@@ -279,7 +290,13 @@ export async function updateSportsEvent(event: SportsEvent): Promise<SportsEvent
      } else if (error instanceof Error) {
          errorMessage = error.message;
      }
-     console.error("Detailed Error updating sports event:", error); // Log the raw error object
+      // Log the detailed error object regardless of type
+      console.error("Detailed Error updating sports event:", {
+        code: (error as any).code, // Attempt to get code if available
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        errorObject: error // Log the full error object
+      });
      throw new Error(errorMessage);
    }
 }
@@ -309,17 +326,27 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
   } catch (error) {
     console.error(`Error fetching match result for ID ${matchId}:`, error); // Log specific ID
     let errorMessage = `Could not fetch result for match ID ${matchId}.`;
+
     // Check FirestoreError and specific codes
     if (error instanceof FirestoreError) {
       errorMessage = `Firestore error fetching result for ${matchId} (${error.code}): ${error.message}`;
-      if (error.code === 'permission-denied') { // Use string code
-         errorMessage = `Permission denied fetching result for ${matchId}. Check Firestore rules for 'matchResults'.`;
+      if (error.code === 'permission-denied') {
+        // Highlight permission issue specifically
+        errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Check Firestore rules for 'matchResults' collection.`;
       }
     } else if (error instanceof Error) {
-        errorMessage = `Error fetching result for ${matchId}: ${error.message}`;
+      errorMessage = `Error fetching result for ${matchId}: ${error.message}`;
     }
-    console.error("Detailed Error fetching match result:", error); // Log the raw error object
-    throw new Error(errorMessage); // Re-throw with more context
+
+    // Log the detailed error object regardless of type
+    console.error(`Detailed Error fetching match result for ${matchId}:`, {
+        code: (error as any).code,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        errorObject: error
+    });
+
+    throw new Error(errorMessage); // Re-throw with potentially more specific message
   }
 }
 
@@ -367,7 +394,13 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
       } else if (error instanceof Error) {
         errorMessage = `Error updating result for ${result.matchId}: ${error.message}`;
       }
-    console.error("Detailed Error updating match result:", error); // Log the raw error object
+      // Log the detailed error object regardless of type
+      console.error(`Detailed Error updating match result for ${result.matchId}:`, {
+        code: (error as any).code, // Attempt to get code if available
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        errorObject: error // Log the full error object
+      });
     throw new Error(errorMessage);
   }
 }
