@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -40,33 +41,41 @@ export default function AdminDashboardPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // Fetch Data only if authenticated
-  useEffect(() => {
-    if (user) { // Only fetch if user is confirmed to be logged in
-      async function fetchData() {
-        try {
-          setDataLoading(true);
-          const fetchedEvents = await getSportsEvents();
-          setEvents(fetchedEvents);
 
-          const resultsPromises = fetchedEvents.map(event => getMatchResult(event.id));
-          const fetchedResults = await Promise.all(resultsPromises);
-          setResults(fetchedResults);
+   // Unified data fetching function
+   const refreshData = async () => {
+      if (!user) return; // Don't fetch if not authenticated
 
-        } catch (error) {
-          console.error("Failed to fetch admin data:", error);
-           toast({
-               title: "Error Fetching Data",
-               description: "Could not load match or result data.",
-               variant: "destructive",
-           });
-        } finally {
-          setDataLoading(false);
-        }
+      try {
+        setDataLoading(true);
+        console.log("Refreshing admin data...");
+        const fetchedEvents = await getSportsEvents();
+        console.log("Fetched Events:", fetchedEvents.length);
+        setEvents(fetchedEvents);
+
+        const resultsPromises = fetchedEvents.map(event => getMatchResult(event.id));
+        const fetchedResults = await Promise.all(resultsPromises);
+        console.log("Fetched Results:", fetchedResults.filter(r => r !== null).length);
+        setResults(fetchedResults);
+
+      } catch (error) {
+        console.error("Failed to refresh admin data:", error);
+         toast({
+             title: "Error Fetching Data",
+             description: "Could not load latest match or result data.",
+             variant: "destructive",
+         });
+      } finally {
+        setDataLoading(false);
+        console.log("Data refresh complete.");
       }
-      fetchData();
-    }
-  }, [user, toast]); // Re-run fetch if user changes (though unlikely here)
+    };
+
+  // Initial Data Fetch and Refresh setup
+  useEffect(() => {
+     refreshData(); // Initial fetch when user is confirmed
+   }, [user, toast]); // Re-run fetch if user changes or toast instance changes (though unlikely)
+
 
   const handleSignOut = async () => {
     try {
@@ -85,23 +94,6 @@ export default function AdminDashboardPage() {
       });
     }
   };
-
-  // Refresh data after creation/update
-   const refreshData = async () => {
-     try {
-       setDataLoading(true);
-       const fetchedEvents = await getSportsEvents();
-       setEvents(fetchedEvents);
-       const resultsPromises = fetchedEvents.map(event => getMatchResult(event.id));
-       const fetchedResults = await Promise.all(resultsPromises);
-       setResults(fetchedResults);
-     } catch (error) {
-       console.error("Failed to refresh data:", error);
-       toast({ title: "Error", description: "Could not refresh data.", variant: "destructive" });
-     } finally {
-       setDataLoading(false);
-     }
-   };
 
 
   // Loading state for authentication

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import type { NextPage } from 'next';
@@ -23,10 +22,10 @@ import type { Timestamp } from 'firebase/firestore'; // Import Timestamp type
 
 // Helper to get the appropriate icon for gender
 const getGenderIcon = (gender: string) => {
-    switch (gender) {
-        case 'Boys': return <User className="w-4 h-4 shrink-0" />; // Using User icon for Boys
-        case 'Girls': return <UserRound className="w-4 h-4 shrink-0" />; // Using UserRound icon for Girls
-        case 'Mixed': return <Users className="w-4 h-4 shrink-0" />; // Using Users icon for Mixed
+    switch (gender?.toLowerCase()) { // Add nullish coalescing and toLowerCase for safety
+        case 'boys': return <User className="w-4 h-4 shrink-0" />; // Using User icon for Boys
+        case 'girls': return <UserRound className="w-4 h-4 shrink-0" />; // Using UserRound icon for Girls
+        case 'mixed': return <Users className="w-4 h-4 shrink-0" />; // Using Users icon for Mixed
         default: return <Users className="w-4 h-4 shrink-0" />; // Fallback
     }
 }
@@ -36,15 +35,16 @@ const HomePage: NextPage = () => {
   const [displayMode, setDisplayMode] = useState<'upcoming' | 'results'>('upcoming');
   const [selectedSport, setSelectedSport] = useState<string>('all');
   // const [selectedGender, setSelectedGender] = useState<string>('all'); // Add state for gender filter if needed
-  const [upcomingEvents, setUpcomingEvents] = useState<SportsEvent[]>([]);
+  const [allEvents, setAllEvents] = useState<SportsEvent[]>([]); // Store all fetched events
   const [latestResults, setLatestResults] = useState<MatchResult[]>([]);
-  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(true);
   const [loadingResults, setLoadingResults] = useState(true);
   const { toast } = useToast();
 
 
-   // Convert Firestore Timestamp to JS Date
-   const getDateFromTimestamp = (timestamp: Timestamp | Date): Date => {
+   // Convert Firestore Timestamp to JS Date, handling potential undefined or null
+   const getDateFromTimestamp = (timestamp: Timestamp | Date | undefined): Date | null => {
+       if (!timestamp) return null; // Return null if timestamp is undefined or null
        if (timestamp instanceof Date) {
            return timestamp; // Already a Date object
        }
@@ -54,19 +54,20 @@ const HomePage: NextPage = () => {
        }
        // Fallback or error handling for invalid timestamp
        console.warn("Invalid timestamp received:", timestamp);
-       return new Date(); // Return current date as a fallback
+       return null; // Return null for invalid timestamps
    };
 
 
   useEffect(() => {
     async function fetchData() {
       try {
-        setLoadingUpcoming(true);
+        setLoadingEvents(true);
         setLoadingResults(true); // Start loading results as well
 
         const events = await getSportsEvents(); // Fetches from Firestore
+        setAllEvents(events); // Store all events
 
-        // Fetch results concurrently
+        // Fetch results concurrently for all fetched events
         const resultsPromises = events.map(event => getMatchResult(event.id));
         const fetchedResults = (await Promise.all(resultsPromises)).filter(r => r !== null) as MatchResult[];
 
@@ -76,13 +77,12 @@ const HomePage: NextPage = () => {
              const matchB = events.find(e => e.id === b.matchId);
              // Handle cases where match might not be found (though unlikely if data is consistent)
              if (!matchA || !matchB) return 0;
-             const timeA = getDateFromTimestamp(matchA.dateTime).getTime();
-             const timeB = getDateFromTimestamp(matchB.dateTime).getTime();
+             const timeA = getDateFromTimestamp(matchA.dateTime)?.getTime() ?? 0; // Use nullish coalescing
+             const timeB = getDateFromTimestamp(matchB.dateTime)?.getTime() ?? 0;
              return timeB - timeA; // Descending order
          });
 
 
-        setUpcomingEvents(events);
         setLatestResults(fetchedResults);
 
       } catch (error) {
@@ -93,7 +93,7 @@ const HomePage: NextPage = () => {
             variant: "destructive",
           });
       } finally {
-        setLoadingUpcoming(false);
+        setLoadingEvents(false); // Events loading finished
         setLoadingResults(false); // Results loading finished
       }
     }
@@ -101,13 +101,20 @@ const HomePage: NextPage = () => {
   }, [toast]); // Add toast to dependency array
 
 
-  const filteredUpcomingEvents = upcomingEvents.filter(event =>
-    (selectedSport === 'all' || event.sport.toLowerCase() === selectedSport.toLowerCase())
-    // && (selectedGender === 'all' || event.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic if needed
-  );
+  const filteredUpcomingEvents = allEvents
+    .filter(event => !latestResults.some(res => res.matchId === event.id)) // Filter out events that have results
+    .filter(event =>
+        (selectedSport === 'all' || event.sport.toLowerCase() === selectedSport.toLowerCase())
+        // && (selectedGender === 'all' || event.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic if needed
+     )
+    .sort((a, b) => { // Ensure upcoming are sorted by date ascending
+        const timeA = getDateFromTimestamp(a.dateTime)?.getTime() ?? 0;
+        const timeB = getDateFromTimestamp(b.dateTime)?.getTime() ?? 0;
+        return timeA - timeB;
+    });
 
   const filteredResults = latestResults.filter(result => {
-     const match = upcomingEvents.find(e => e.id === result.matchId);
+     const match = allEvents.find(e => e.id === result.matchId);
      if (!match) return false; // Skip if match not found
      return (selectedSport === 'all' || match.sport.toLowerCase() === selectedSport.toLowerCase())
      // && (selectedGender === 'all' || match.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic if needed
@@ -160,7 +167,7 @@ const HomePage: NextPage = () => {
            {/* {selectedGender !== 'all' ? ` (${selectedGender.charAt(0).toUpperCase() + selectedGender.slice(1)})` : ''} */}
          </h2>
          {displayMode === 'upcoming' ? (
-           loadingUpcoming ? (
+           loadingEvents ? (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                {[...Array(3)].map((_, i) => ( <Skeleton key={`skel-up-${i}`} className="h-[250px] rounded-lg" /> ))}
              </div>
@@ -177,9 +184,11 @@ const HomePage: NextPage = () => {
             ) : filteredResults.length > 0 ? (
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                {filteredResults.map((result) => {
-                  const match = upcomingEvents.find(e => e.id === result.matchId);
+                  const match = allEvents.find(e => e.id === result.matchId);
                   // Use a unique key combining prefix and id
                   const cardKey = `result-card-${result.matchId}`;
+                  const matchDate = getDateFromTimestamp(match?.dateTime); // Get JS Date or null
+
                   return (
                      <Card key={cardKey} className="overflow-hidden transition-shadow duration-300 hover:shadow-lg">
                       <CardHeader className="bg-secondary p-4">
@@ -192,7 +201,8 @@ const HomePage: NextPage = () => {
                             )}
                         </div>
                          <CardDescription className="text-xs text-muted-foreground mt-1">
-                            {match ? `${format(getDateFromTimestamp(match.dateTime), 'PPP')} at ${format(getDateFromTimestamp(match.dateTime),'p')}` : 'Date unavailable'}
+                            {/* Format date safely */}
+                            {matchDate ? `${format(matchDate, 'PPP')} at ${format(matchDate,'p')}` : 'Date unavailable'}
                           </CardDescription>
                          {match && (
                              <CardDescription className="text-xs text-muted-foreground flex items-center gap-1">

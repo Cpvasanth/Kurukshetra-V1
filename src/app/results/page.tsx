@@ -1,5 +1,4 @@
 
-
 'use client';
 
  import { useState, useEffect } from 'react';
@@ -16,14 +15,27 @@
  import type { Timestamp } from 'firebase/firestore'; // Import Timestamp type
 
  // Helper to get the appropriate icon for gender
- const getGenderIcon = (gender: string) => {
-     switch (gender) {
-         case 'Boys': return <User className="w-4 h-4 shrink-0" />; // Using User icon for Boys
-         case 'Girls': return <UserRound className="w-4 h-4 shrink-0" />; // Using UserRound icon for Girls
-         case 'Mixed': return <Users className="w-4 h-4 shrink-0" />; // Using Users icon for Mixed
+ const getGenderIcon = (gender: string | undefined) => { // Allow undefined
+     switch (gender?.toLowerCase()) { // Safe navigation and lowercase
+         case 'boys': return <User className="w-4 h-4 shrink-0" />;
+         case 'girls': return <UserRound className="w-4 h-4 shrink-0" />;
+         case 'mixed': return <Users className="w-4 h-4 shrink-0" />;
          default: return <Users className="w-4 h-4 shrink-0" />; // Fallback
      }
  }
+
+ // Convert Firestore Timestamp to JS Date, handling potential undefined or null
+ const getDateFromTimestamp = (timestamp: Timestamp | Date | undefined): Date | null => {
+     if (!timestamp) return null;
+     if (timestamp instanceof Date) {
+         return timestamp;
+     }
+     if (timestamp && typeof timestamp.toDate === 'function') {
+         return timestamp.toDate();
+     }
+     console.warn("Invalid timestamp received in results:", timestamp);
+     return null;
+ };
 
 
  export default function ResultsPage() {
@@ -33,45 +45,39 @@
    const [selectedSport, setSelectedSport] = useState<string>('all');
    const { toast } = useToast();
 
-    // Convert Firestore Timestamp to JS Date
-    const getDateFromTimestamp = (timestamp: Timestamp | Date): Date => {
-        if (timestamp instanceof Date) {
-            return timestamp; // Already a Date object
-        }
-         if (timestamp && typeof timestamp.toDate === 'function') {
-           return timestamp.toDate();
-         }
-         console.warn("Invalid timestamp received in results:", timestamp);
-        return new Date(); // Fallback
-    };
-
 
    useEffect(() => {
      async function loadData() {
        try {
          setLoading(true);
+         console.log("ResultsPage: Fetching events...");
          const fetchedEvents = await getSportsEvents(); // Fetches from Firestore
+         console.log("ResultsPage: Fetched events count:", fetchedEvents.length);
          setEvents(fetchedEvents);
 
+         console.log("ResultsPage: Fetching results...");
          // Fetch results for all events concurrently
          const resultsPromises = fetchedEvents.map(event => getMatchResult(event.id));
          const fetchedResults = (await Promise.all(resultsPromises))
             .filter(r => r !== null) as MatchResult[];
+         console.log("ResultsPage: Fetched results count:", fetchedResults.length);
+
 
          // Sort results by match date (descending - most recent first) using timestamp
          fetchedResults.sort((a, b) => {
              const matchA = fetchedEvents.find(e => e.id === a.matchId);
              const matchB = fetchedEvents.find(e => e.id === b.matchId);
              if (!matchA || !matchB) return 0; // Should not happen if data is consistent
-             const timeA = getDateFromTimestamp(matchA.dateTime).getTime();
-             const timeB = getDateFromTimestamp(matchB.dateTime).getTime();
+             const timeA = getDateFromTimestamp(matchA.dateTime)?.getTime() ?? 0; // Use nullish coalescing
+             const timeB = getDateFromTimestamp(matchB.dateTime)?.getTime() ?? 0;
              return timeB - timeA; // Descending order
          });
 
          setResults(fetchedResults);
+         console.log("ResultsPage: Data loading complete.");
 
        } catch (error) {
-         console.error("Failed to load results:", error);
+         console.error("Failed to load results data:", error);
           toast({
             title: "Error Loading Results",
             description: "Could not fetch match results. Please try again later.",
@@ -84,6 +90,7 @@
      loadData();
    }, [toast]); // Add toast dependency
 
+    // Filter results based on the selected sport, ensuring the associated match exists
     const filteredResults = results.filter(result => {
        const match = events.find(e => e.id === result.matchId);
        if (!match) return false; // Skip if match details not found
@@ -120,13 +127,17 @@
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              {filteredResults.map((result, index) => {
                const match = events.find(e => e.id === result.matchId);
-               if (!match) return null; // Should not happen based on filter logic
+               // Match should always exist based on filter logic, but add a check for safety
+               if (!match) {
+                  console.warn("Could not find match details for result:", result);
+                  return null;
+               }
 
                const matchDate = getDateFromTimestamp(match.dateTime);
 
                 return (
                    <Card
-                     key={result.matchId}
+                     key={result.matchId} // Use matchId as the key
                      className="overflow-hidden transition-all duration-500 ease-out hover:shadow-xl animate-fade-in flex flex-col" // Added flex flex-col
                      style={{ animationDelay: `${index * 100}ms` }}
                    >
@@ -138,7 +149,8 @@
                           <Badge variant="outline" className="text-xs shrink-0 capitalize">{match.sport}</Badge>
                         </div>
                        <CardDescription className="text-xs text-muted-foreground mt-1">
-                          {format(matchDate, 'PPP')} - {format(matchDate, 'p')} {/* Format date and time */}
+                          {/* Safely format date and time */}
+                          {matchDate ? `${format(matchDate, 'PPP')} - ${format(matchDate, 'p')}` : 'Date unavailable'}
                        </CardDescription>
                         <CardDescription className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                             {getGenderIcon(match.gender)} {match.gender}
@@ -150,7 +162,7 @@
                             <Image
                               src={result.winningTeamPhotoUrl}
                               alt={`${result.winningTeam} winning moment`}
-                              fill // Use fill instead of layout
+                              fill // Use fill layout
                               style={{ objectFit: 'cover' }} // Use style for objectFit
                               data-ai-hint="winning team photo"
                               className="transition-transform duration-300 hover:scale-105"
@@ -162,7 +174,8 @@
                          <span className="truncate">{match.teams[0]}</span>
                          <Badge
                             variant={result.winningTeam === match.teams[0] ? 'default' : 'outline'}
-                            className="text-lg px-3 py-1 bg-primary/10 text-primary border-primary/30"
+                            // Adjusted styling for score badges
+                            className={`text-lg px-3 py-1 ${result.winningTeam === match.teams[0] ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground border'}`}
                          >
                            {result.team1Score}
                          </Badge>
@@ -170,8 +183,8 @@
                        <div className="flex justify-between items-center font-medium">
                          <span className="truncate">{match.teams[1]}</span>
                          <Badge
-                            variant={result.winningTeam === match.teams[1] ? 'default' : 'outline'}
-                            className="text-lg px-3 py-1 bg-primary/10 text-primary border-primary/30"
+                             variant={result.winningTeam === match.teams[1] ? 'default' : 'outline'}
+                             className={`text-lg px-3 py-1 ${result.winningTeam === match.teams[1] ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground border'}`}
                          >
                            {result.team2Score}
                          </Badge>

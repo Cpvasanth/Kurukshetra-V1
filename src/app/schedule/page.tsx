@@ -2,46 +2,79 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { SportsEvent } from '@/services/sports-data';
-import { getSportsEvents } from '@/services/sports-data'; // Use Firestore function
+import type { SportsEvent, MatchResult } from '@/services/sports-data';
+import { getSportsEvents, getMatchResult } from '@/services/sports-data'; // Use Firestore function
 import { MatchList } from '@/components/match-list';
 import { SportsFilter } from '@/components/sports-filter';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarDays, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { Timestamp } from 'firebase/firestore'; // Import Timestamp type
+
+// Convert Firestore Timestamp to JS Date, handling potential undefined or null
+const getDateFromTimestamp = (timestamp: Timestamp | Date | undefined): Date | null => {
+    if (!timestamp) return null;
+    if (timestamp instanceof Date) {
+        return timestamp;
+    }
+    if (timestamp && typeof timestamp.toDate === 'function') {
+        return timestamp.toDate();
+    }
+    console.warn("Invalid timestamp received in SchedulePage:", timestamp);
+    return null;
+};
 
 
 export default function SchedulePage() {
-  const [events, setEvents] = useState<SportsEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [allEvents, setAllEvents] = useState<SportsEvent[]>([]);
+  const [results, setResults] = useState<MatchResult[]>([]); // Store results to filter events
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingResults, setLoadingResults] = useState(true); // Add loading state for results
   const [selectedSport, setSelectedSport] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
-    async function loadEvents() {
+    async function loadData() {
       try {
-        setLoading(true);
+        setLoadingEvents(true);
+        setLoadingResults(true);
         const fetchedEvents = await getSportsEvents(); // Fetches ordered events from Firestore
-        setEvents(fetchedEvents);
+        setAllEvents(fetchedEvents);
+
+        // Fetch results to identify completed matches
+        const resultsPromises = fetchedEvents.map(event => getMatchResult(event.id));
+        const fetchedResults = (await Promise.all(resultsPromises)).filter(r => r !== null) as MatchResult[];
+        setResults(fetchedResults);
+
       } catch (error) {
-        console.error("Failed to load schedule:", error);
+        console.error("Failed to load schedule data:", error);
          toast({
-             title: "Error Loading Schedule",
-             description: "Could not fetch the match schedule. Please try again later.",
+             title: "Error Loading Data",
+             description: "Could not fetch matches or results. Please try again later.",
              variant: "destructive",
          });
       } finally {
-        setLoading(false);
+        setLoadingEvents(false);
+        setLoadingResults(false);
       }
     }
-    loadEvents();
+    loadData();
   }, [toast]); // Add toast dependency
 
 
-  // Filter events based on selected sport (filtering happens client-side after fetch)
-  const filteredEvents = events.filter(event =>
-     selectedSport === 'all' || event.sport.toLowerCase() === selectedSport.toLowerCase() // Filter by sport name
-   );
+  // Filter events: keep only those *without* results and matching the selected sport
+  const filteredUpcomingEvents = allEvents
+    .filter(event => !results.some(res => res.matchId === event.id)) // Exclude events with results
+    .filter(event =>
+        selectedSport === 'all' || event.sport.toLowerCase() === selectedSport.toLowerCase() // Filter by sport name
+    )
+    .sort((a, b) => { // Ensure sorting by date ascending
+        const timeA = getDateFromTimestamp(a.dateTime)?.getTime() ?? 0;
+        const timeB = getDateFromTimestamp(b.dateTime)?.getTime() ?? 0;
+        return timeA - timeB;
+    });
+
+  const isLoading = loadingEvents || loadingResults; // Combined loading state
 
   return (
     <div className="space-y-8">
@@ -53,7 +86,7 @@ export default function SchedulePage() {
          {/* Date filter could be added here */}
       </div>
        <p className="text-muted-foreground">
-         Browse upcoming sports events. Use the filter below to select a specific sport.
+         Browse upcoming sports events. Use the filter below to select a specific sport. Matches with results are automatically excluded.
        </p>
 
       <section>
@@ -66,13 +99,13 @@ export default function SchedulePage() {
            Upcoming Events
            {selectedSport !== 'all' ? ` (${selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)})` : ''}
          </h2>
-        {loading ? (
+        {isLoading ? ( // Use combined loading state
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => ( <Skeleton key={`skel-sch-${i}`} className="h-[250px] rounded-lg" /> ))}
             </div>
-        ) : filteredEvents.length > 0 ? (
-          // Pass already sorted events to MatchList
-          <MatchList events={filteredEvents} />
+        ) : filteredUpcomingEvents.length > 0 ? (
+          // Pass already sorted and filtered events to MatchList
+          <MatchList events={filteredUpcomingEvents} />
         ) : (
           <p className="text-muted-foreground text-center py-8">
             No upcoming matches found{selectedSport !== 'all' ? ` for ${selectedSport}` : ''}. Check back later!

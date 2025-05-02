@@ -53,7 +53,7 @@ const matchSchema = z.object({
 type MatchFormData = z.infer<typeof matchSchema>;
 
 interface CreateMatchFormProps {
-  onMatchCreated?: (newEvent: SportsEvent) => void; // Optional callback
+  onMatchCreated?: () => void; // Callback without event argument needed for simple refresh
 }
 
 export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
@@ -79,21 +79,22 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
     setShowSuccess(false);
     console.log('Submitting match data:', data);
 
-    const newEventData: Omit<SportsEvent, 'id' | 'dateTime'> = {
+    // Prepare data in the format expected by createSportsEvent
+    const eventDataToSend = {
         matchTitle: data.matchTitle,
-        sport: data.sport, // Include sport
-        gender: data.gender, // Include gender
+        sport: data.sport,
+        gender: data.gender,
         matchType: data.matchType,
-        date: format(data.date, 'yyyy-MM-dd'), // Format date for storage/API
-        time: data.time,
+        date: format(data.date, 'yyyy-MM-dd'), // Format date as YYYY-MM-DD string
+        time: data.time, // Time as HH:MM string
         teams: [data.team1, data.team2],
     };
 
     try {
-        // Use the actual createSportsEvent function
-        const createdEvent = await createSportsEvent(newEventData);
+        // Use the actual createSportsEvent function from the service
+        const createdEvent = await createSportsEvent(eventDataToSend);
 
-        console.log('Successfully created event:', createdEvent);
+        console.log('Successfully created event in Firestore:', createdEvent);
 
         setShowSuccess(true);
         form.reset(); // Reset form after successful submission
@@ -108,16 +109,16 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
              variant: 'default', // Use a 'success' variant if available
         });
 
-        onMatchCreated?.(createdEvent); // Call the callback if provided
+        onMatchCreated?.(); // Call the refresh callback if provided
 
         // Hide success animation after a delay
         setTimeout(() => setShowSuccess(false), 3000);
 
     } catch (error) {
-        console.error("Failed to create match:", error);
+        console.error("Failed to create match in Firestore:", error);
          toast({
              title: "Error Creating Match",
-             description: "Could not schedule the match. Please try again.",
+             description: error instanceof Error ? error.message : "Could not schedule the match. Please try again.",
              variant: "destructive",
          });
     } finally {
@@ -267,6 +268,7 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
                <FormItem>
                  <FormLabel>Time (HH:MM)</FormLabel>
                  <FormControl>
+                   {/* Use standard time input */}
                    <Input type="time" {...field} disabled={isLoading} />
                  </FormControl>
                  <FormMessage />

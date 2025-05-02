@@ -45,10 +45,12 @@ export interface SportsEvent {
   matchType: string;
   /**
    * @deprecated Use dateTime instead for consistency and proper sorting.
+   * This field is derived from dateTime when reading for potential UI compatibility.
    */
   date: string;
    /**
     * @deprecated Use dateTime instead for consistency and proper sorting.
+    * This field is derived from dateTime when reading for potential UI compatibility.
     */
   time: string;
    /**
@@ -111,20 +113,22 @@ export async function getSportsEvents(): Promise<SportsEvent[]> {
     const querySnapshot = await getDocs(eventsQuery);
     const events = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        const dateTime = data.dateTime instanceof Timestamp ? data.dateTime : Timestamp.now(); // Provide fallback
-        const jsDate = dateTime.toDate();
+        // Ensure dateTime is a Timestamp, default to now if invalid/missing
+        const dateTime = data.dateTime instanceof Timestamp ? data.dateTime : Timestamp.now();
+        const jsDate = dateTime.toDate(); // Convert Timestamp to JS Date for derivation
+
         return {
            id: doc.id,
            matchTitle: data.matchTitle ?? 'Unknown Match',
-           sport: data.sport ?? 'Other', // Default to 'Other' if missing
-           gender: data.gender ?? 'Mixed', // Default to 'Mixed' if missing
-           matchType: data.matchType ?? 'Normal',
-           dateTime: dateTime,
-           teams: Array.isArray(data.teams) ? data.teams : ['Team A', 'Team B'],
-           // Deprecated fields (derived for potential backward compatibility)
-           date: jsDate.toISOString().split('T')[0],
-           time: jsDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
-        } as SportsEvent; // Type assertion - careful with this
+           sport: data.sport ?? 'Other', // Provide default if missing
+           gender: data.gender ?? 'Mixed', // Provide default if missing
+           matchType: data.matchType ?? 'Normal', // Provide default if missing
+           dateTime: dateTime, // Store the actual Timestamp
+           teams: Array.isArray(data.teams) ? data.teams : ['Team A', 'Team B'], // Provide default if missing
+           // Deprecated fields (derived for potential backward compatibility in UI)
+           date: jsDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+           time: jsDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }), // Format as HH:MM
+        } as SportsEvent; // Using assertion, ensure data structure matches
     });
     console.log("Fetched events:", events.length);
     return events;
@@ -136,43 +140,55 @@ export async function getSportsEvents(): Promise<SportsEvent[]> {
 
 /**
  * Asynchronously creates a new sports event in Firestore.
- * @param eventData The data for the sports event to create (without ID).
- * @returns A promise that resolves to the created SportsEvent object (with ID).
+ * Combines date and time strings into a Firestore Timestamp.
+ * @param eventData The data for the sports event to create (requires date and time strings).
+ * @returns A promise that resolves to the created SportsEvent object (with ID and Timestamp).
  */
-export async function createSportsEvent(eventData: Omit<SportsEvent, 'id' | 'dateTime'>): Promise<SportsEvent> {
-   console.log("Creating sports event in Firestore:", eventData);
+export async function createSportsEvent(eventData: {
+    matchTitle: string;
+    sport: Sport;
+    gender: Gender;
+    matchType: string;
+    date: string; // Expecting YYYY-MM-DD
+    time: string; // Expecting HH:MM
+    teams: string[];
+}): Promise<SportsEvent> {
+   console.log("Attempting to create sports event in Firestore:", eventData);
    try {
      const firestoreDb = getDbInstance();
      const eventsCollection = collection(firestoreDb, 'sportsEvents');
+
      // Combine date and time into a JavaScript Date object, then convert to Firestore Timestamp
-     const jsDate = new Date(`${eventData.date}T${eventData.time}:00`); // Ensure seconds are included
+     const jsDate = new Date(`${eventData.date}T${eventData.time}:00`); // Assume local timezone, ensure seconds are included
      if (isNaN(jsDate.getTime())) {
+         console.error("Invalid date/time format provided:", eventData.date, eventData.time);
          throw new Error("Invalid date/time format for creating Timestamp.");
      }
      const dateTimeStamp = Timestamp.fromDate(jsDate);
+     console.log("Generated Timestamp:", dateTimeStamp);
 
-     const docRef = await addDoc(eventsCollection, {
-       matchTitle: eventData.matchTitle,
-       sport: eventData.sport, // Add sport
-       gender: eventData.gender, // Add gender
-       matchType: eventData.matchType,
-       teams: eventData.teams,
-       dateTime: dateTimeStamp, // Store the Timestamp
-     });
-
-     // Construct the full event object to return, including the generated ID and the timestamp
-     const newEvent: SportsEvent = {
-       id: docRef.id,
+     // Data to be stored in Firestore (using the Timestamp)
+     const dataToStore = {
        matchTitle: eventData.matchTitle,
        sport: eventData.sport,
        gender: eventData.gender,
        matchType: eventData.matchType,
-       date: eventData.date, // Keep for potential compatibility if needed elsewhere short-term
-       time: eventData.time, // Keep for potential compatibility
-       dateTime: dateTimeStamp,
        teams: eventData.teams,
+       dateTime: dateTimeStamp, // Store the combined Timestamp
      };
-     console.log("Created event:", newEvent);
+
+     const docRef = await addDoc(eventsCollection, dataToStore);
+     console.log("Document written with ID: ", docRef.id);
+
+     // Construct the full event object to return, reflecting the stored state
+     const newEvent: SportsEvent = {
+       id: docRef.id,
+       ...dataToStore,
+       // Include derived date/time strings for potential immediate use if needed, though dateTime is primary
+       date: eventData.date,
+       time: eventData.time,
+     };
+     console.log("Successfully created event:", newEvent);
      return newEvent;
    } catch (error) {
      console.error("Error creating sports event: ", error);
@@ -183,7 +199,8 @@ export async function createSportsEvent(eventData: Omit<SportsEvent, 'id' | 'dat
 
 /**
  * Asynchronously updates a sports event in Firestore.
- * @param event The sports event to update.
+ * @param event The full sports event object to update, including ID and potentially changed fields.
+ *              It's expected to contain date and time strings if they need to update the dateTime timestamp.
  * @returns A promise that resolves to the updated SportsEvent object.
  */
 export async function updateSportsEvent(event: SportsEvent): Promise<SportsEvent> {
@@ -191,31 +208,37 @@ export async function updateSportsEvent(event: SportsEvent): Promise<SportsEvent
    try {
      const firestoreDb = getDbInstance();
      const eventRef = doc(firestoreDb, 'sportsEvents', event.id);
-      // Ensure dateTime is updated if date or time changes
+
+      // Re-calculate Timestamp if date or time strings are provided and potentially changed
+      // This assumes the input `event` object might have updated `date` and `time` strings
       const jsDate = new Date(`${event.date}T${event.time}:00`);
       if (isNaN(jsDate.getTime())) {
-           throw new Error("Invalid date/time format for creating Timestamp.");
+           console.error("Invalid date/time format provided for update:", event.date, event.time);
+           throw new Error("Invalid date/time format for creating Timestamp during update.");
       }
       const dateTimeStamp = Timestamp.fromDate(jsDate);
 
-      // Prepare data, excluding the ID field which shouldn't be in the update data
-      const updateData: Partial<Omit<SportsEvent, 'id'>> = {
+      // Prepare data, excluding the ID. Use the calculated Timestamp.
+      const updateData: Omit<SportsEvent, 'id' | 'date' | 'time'> = {
           matchTitle: event.matchTitle,
-          sport: event.sport, // Include sport
-          gender: event.gender, // Include gender
+          sport: event.sport,
+          gender: event.gender,
           matchType: event.matchType,
           teams: event.teams,
-          dateTime: dateTimeStamp,
-          // Explicitly remove date and time if they are truly deprecated
-          // date: undefined,
-          // time: undefined,
+          dateTime: dateTimeStamp, // Update with the new Timestamp
       };
 
 
      await updateDoc(eventRef, updateData);
      console.log("Updated event with ID:", event.id);
-     // Return the event object with the potentially updated dateTime
-     return { ...event, dateTime: dateTimeStamp };
+
+     // Return the event object reflecting the update (with new timestamp and derived strings)
+     return {
+        ...event, // Keep the original ID
+        ...updateData, // Apply updated fields
+        date: jsDate.toISOString().split('T')[0], // Re-derive date string
+        time: jsDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }), // Re-derive time string
+     };
    } catch (error) {
      console.error("Error updating sports event: ", error);
      throw new Error(`Could not update event with ID ${event.id}.`);
@@ -261,20 +284,27 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
   console.log("Updating/Creating match result in Firestore:", result);
   try {
      const firestoreDb = getDbInstance();
-    // Check if the corresponding event exists first (optional but good practice)
-    const eventRef = doc(firestoreDb, 'sportsEvents', result.matchId);
-    const eventSnap = await getDoc(eventRef);
-    if (!eventSnap.exists()) {
-      console.error("Cannot update result for non-existent event:", result.matchId);
-      throw new Error(`Match event with ID ${result.matchId} not found.`);
-    }
+    // Optional: Check if the corresponding event exists first
+    // const eventRef = doc(firestoreDb, 'sportsEvents', result.matchId);
+    // const eventSnap = await getDoc(eventRef);
+    // if (!eventSnap.exists()) {
+    //   console.error("Cannot update result for non-existent event:", result.matchId);
+    //   throw new Error(`Match event with ID ${result.matchId} not found.`);
+    // }
 
     const resultRef = doc(firestoreDb, 'matchResults', result.matchId); // Use matchId as document ID
-    // Use setDoc with merge: true to create or update the document
-    await setDoc(resultRef, result, { merge: true });
 
-    console.log("Updated/Created result:", result);
-    return result; // Return the input result object
+    // Prepare data for Firestore, ensuring optional field is handled
+    const dataToSet: MatchResult = {
+      ...result,
+      winningTeamPhotoUrl: result.winningTeamPhotoUrl || undefined, // Store undefined if empty/null
+    };
+
+    // Use setDoc which creates or overwrites the document at the specified path
+    await setDoc(resultRef, dataToSet);
+
+    console.log("Updated/Created result for match ID:", result.matchId);
+    return dataToSet; // Return the data that was set
   } catch (error) {
     console.error("Error updating match result: ", error);
     throw new Error(`Could not update result for match ID ${result.matchId}.`);

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,10 +15,25 @@ import { updateMatchResult } from '@/services/sports-data'; // Import the actual
 import type { SportsEvent, MatchResult } from '@/services/sports-data';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
+
+
+// Convert Firestore Timestamp to JS Date for display/form usage
+const getDateFromTimestamp = (timestamp: Timestamp | Date | undefined): Date | null => {
+   if (!timestamp) return null;
+   if (timestamp instanceof Date) {
+       return timestamp;
+   }
+   if (timestamp && typeof timestamp.toDate === 'function') {
+       return timestamp.toDate();
+   }
+   console.warn("Invalid timestamp received:", timestamp);
+   return null; // Return null for invalid cases
+};
 
 
 const resultSchema = z.object({
-  matchId: z.string({ required_error: 'Please select a match.' }),
+  matchId: z.string().min(1, { required_error: 'Please select a match.' }), // Ensure matchId is not empty
   team1Score: z.coerce.number().min(0, 'Score cannot be negative.').int('Score must be an integer.'),
   team2Score: z.coerce.number().min(0, 'Score cannot be negative.').int('Score must be an integer.'),
   winningTeam: z.string().min(1, { message: 'Please select the winning team.' }),
@@ -29,7 +45,7 @@ type ResultFormData = z.infer<typeof resultSchema>;
 interface UpdateResultFormProps {
   matches: SportsEvent[];
   existingResults: MatchResult[];
-  onResultUpdated?: (updatedResult: MatchResult) => void; // Optional callback
+  onResultUpdated?: () => void; // Simple refresh callback
 }
 
 export function UpdateResultForm({ matches, existingResults, onResultUpdated }: UpdateResultFormProps) {
@@ -77,7 +93,8 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
     setShowSuccess(false);
     console.log('Updating result data:', data);
 
-     const resultData: MatchResult = {
+     // Prepare data in the format expected by updateMatchResult
+     const resultDataToSend: MatchResult = {
          matchId: data.matchId,
          team1Score: data.team1Score,
          team2Score: data.team2Score,
@@ -86,13 +103,14 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
      };
 
     try {
-        // Use the actual updateMatchResult function
-         const updatedResult = await updateMatchResult(resultData);
+        // Use the actual updateMatchResult function from the service
+         const updatedResult = await updateMatchResult(resultDataToSend);
 
-         console.log('Successfully updated result:', updatedResult);
+         console.log('Successfully updated result in Firestore:', updatedResult);
 
          setShowSuccess(true);
          // Optionally reset form or just show success
+         // form.reset(); // Consider if resetting is desired after update
          toast({
              title: "Result Updated!",
              description: (
@@ -104,7 +122,7 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
              variant: 'default',
          });
 
-         onResultUpdated?.(updatedResult); // Call the callback
+         onResultUpdated?.(); // Call the refresh callback
 
          // Hide success message after delay
           setTimeout(() => setShowSuccess(false), 3000);
@@ -114,7 +132,7 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
       console.error("Failed to update result:", error);
       toast({
         title: "Error Updating Result",
-        description: "Could not update the result. Please try again.",
+        description: error instanceof Error ? error.message : "Could not update the result. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -125,6 +143,8 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
   const handleMatchSelect = (matchId: string) => {
      const match = matches.find(m => m.id === matchId);
      setSelectedMatch(match || null);
+     // Reset dependent fields when match changes (handled by useEffect now)
+     // form.setValue('winningTeam', ''); // Reset winner selection
    };
 
 
@@ -142,7 +162,7 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
                       field.onChange(value);
                       handleMatchSelect(value);
                   }}
-                  defaultValue={field.value}
+                  value={field.value} // Use value for controlled component
                   disabled={isLoading || matches.length === 0} // Disable if loading or no matches
                >
                 <FormControl>
@@ -154,11 +174,15 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
                   <SelectGroup>
                      <SelectLabel>Matches</SelectLabel>
                      {matches.length > 0 ? (
-                         matches.map((match) => (
-                           <SelectItem key={match.id} value={match.id}>
-                             {match.matchTitle} ({format(new Date(match.date), 'PP')})
-                           </SelectItem>
-                         ))
+                         matches.map((match) => {
+                            const matchDate = getDateFromTimestamp(match.dateTime);
+                            const displayDate = matchDate ? format(matchDate, 'PP') : 'Invalid Date';
+                            return (
+                               <SelectItem key={match.id} value={match.id}>
+                                 {match.matchTitle} ({displayDate})
+                               </SelectItem>
+                            )
+                         })
                      ) : (
                          <SelectItem value="no-matches" disabled>No matches available</SelectItem>
                      )}
@@ -214,7 +238,8 @@ export function UpdateResultForm({ matches, existingResults, onResultUpdated }: 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {selectedMatch.teams.map(team => (
+                       {/* Ensure teams exist before mapping */}
+                      {selectedMatch.teams?.map(team => (
                          <SelectItem key={team} value={team}>{team}</SelectItem>
                       ))}
                        {/* Optionally add a 'Draw' option if applicable */}
