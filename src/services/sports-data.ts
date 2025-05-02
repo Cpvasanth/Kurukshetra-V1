@@ -86,9 +86,9 @@ export interface MatchResult {
    */
   winningTeam: string;
   /**
-   * Optional URL of the winning team's photo. Stored as string or not present.
+   * Optional URL of the winning team's photo. Stored as string or undefined.
    */
-  winningTeamPhotoUrl?: string; // Changed from potentially null to just optional string
+  winningTeamPhotoUrl?: string;
 }
 
 
@@ -359,7 +359,7 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
         if (errorCode === 'permission-denied') {
             // Highlight permission issue specifically
             errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Please check Firestore security rules for the 'matchResults' collection.`;
-            console.error(errorMessage); // Log the specific permission error message
+            console.warn(errorMessage); // Use console.warn for permission errors to reduce noise
             // ****** Return null instead of throwing on permission denied ******
             return null;
         } else {
@@ -379,9 +379,6 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
     });
 
      // Return null for other fetch errors as well to let the UI handle it.
-     // Throwing here might prevent the dashboard/other pages from loading if one result fails.
-     // Consider if throwing or returning null is better for your UI/UX.
-     // For now, return null to avoid breaking the entire page load.
      return null;
   }
 }
@@ -390,7 +387,7 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
 /**
  * Asynchronously updates or creates the result of a match in Firestore.
  * Uses the matchId as the document ID in the 'matchResults' collection.
- * Ensures `winningTeamPhotoUrl` is handled correctly (set to null if empty/undefined).
+ * Ensures `winningTeamPhotoUrl` is handled correctly (omitted if empty/undefined).
  * @param result The match result to update/create.
  * @returns A promise that resolves to the updated/created MatchResult object.
  */
@@ -404,21 +401,15 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
      const firestoreDb = getDbInstance();
     const resultRef = doc(firestoreDb, 'matchResults', result.matchId); // Use matchId as document ID
 
-    // Prepare data for Firestore. Explicitly handle winningTeamPhotoUrl.
-    // Use a type that reflects the structure being sent to Firestore.
-    // Ensure no undefined values are sent, as Firestore doesn't support them directly.
-    const dataToSet: { [key: string]: any } = { // Use a generic object type for flexibility
+    // Prepare data for Firestore. Only include fields that have values.
+    const dataToSet: Partial<MatchResult> = {
       matchId: result.matchId,
       team1Score: result.team1Score ?? 0,
       team2Score: result.team2Score ?? 0,
       winningTeam: result.winningTeam ?? 'N/A',
-       // Only include winningTeamPhotoUrl if it's a non-empty string
-       ...(typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '' && { winningTeamPhotoUrl: result.winningTeamPhotoUrl }),
-     };
-
-     // Alternatively, explicitly set to null if not present or empty
-     // dataToSet.winningTeamPhotoUrl = (typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') ? result.winningTeamPhotoUrl : null;
-
+      // Only include winningTeamPhotoUrl if it's a non-empty string
+      ...(typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '' && { winningTeamPhotoUrl: result.winningTeamPhotoUrl }),
+    };
 
     console.log("Data being sent to Firestore setDoc:", dataToSet);
 
@@ -429,51 +420,47 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
     // Fetch the updated doc to return the actual stored state
     const updatedDocSnap = await getDoc(resultRef);
     if (updatedDocSnap.exists()) {
-        const updatedData = updatedDocSnap.data(); // No need to assert specific type here, just get data
+        const updatedData = updatedDocSnap.data();
          return {
              matchId: updatedDocSnap.id,
-             team1Score: updatedData?.team1Score ?? 0, // Use optional chaining and default
+             team1Score: updatedData?.team1Score ?? 0,
              team2Score: updatedData?.team2Score ?? 0,
              winningTeam: updatedData?.winningTeam ?? 'N/A',
-             // Ensure we return undefined if the photo URL is null or missing from Firestore
              winningTeamPhotoUrl: updatedData?.winningTeamPhotoUrl || undefined,
-         } as MatchResult; // Assert the final return type
+         } as MatchResult;
     } else {
-        // Should not happen after setDoc, but handle defensively
         console.error(`Failed to retrieve updated result after setDoc for match ID: ${result.matchId}`);
         throw new Error("Failed to retrieve updated result after setDoc.");
     }
 
-  } catch (error: any) { // Use 'any' to check for 'code' property
+  } catch (error: any) {
     console.error(`Error updating match result for ID ${result.matchId}:`, error);
     let errorMessage = `Could not update result for match ID ${result.matchId}.`;
-    // Check FirestoreError and specific codes
-      if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+
+    if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
         const errorCode = error.code;
-        errorMessage = `Firestore error updating result for ${result.matchId} (${errorCode}): ${error.message}`;
-        if (errorCode === 'permission-denied') { // Use string code
-           // Make the error message clearer about needing to check rules
-           errorMessage = `Permission denied updating result for ${result.matchId}. Check Firestore security rules for 'matchResults'.`;
-           console.error("PERMISSION ERROR:", errorMessage); // Explicitly log permission error
-            // ****** Don't re-throw permission errors, just log and return original data? Or throw a specific error type? ******
-            // Throwing might be better here to indicate the operation truly failed.
+        if (errorCode === 'permission-denied') {
+            errorMessage = `Permission denied updating result for ${result.matchId}. Check Firestore security rules for 'matchResults'.`;
+            console.error("PERMISSION ERROR:", errorMessage);
+            // Re-throw permission errors specifically for updates as it indicates a failed operation
+            throw new Error(errorMessage);
+        } else if (errorCode === 'invalid-argument') {
+           errorMessage = `Invalid data provided for match result ${result.matchId}. Check field values. Error: ${error.message}`;
+           console.error("INVALID DATA ERROR:", errorMessage, "Data Sent:", result);
            throw new Error(errorMessage);
-        } else if (errorCode === 'invalid-argument') { // Check for invalid data error
-           errorMessage = `Invalid data provided for match result ${result.matchId}. Check field values (especially photo URL). Error: ${error.message}`;
-           console.error("INVALID DATA ERROR:", errorMessage, "Data Sent:", result); // Log the data that caused the error
-           throw new Error(errorMessage); // Re-throw invalid data error
+        } else {
+           errorMessage = `Firestore error updating result for ${result.matchId} (${errorCode}): ${error.message}`;
         }
-      } else if (error instanceof Error) {
+    } else if (error instanceof Error) {
         errorMessage = `Error updating result for ${result.matchId}: ${error.message}`;
-      }
-      // Log the detailed error object regardless of type
-      console.error(`Detailed Error updating match result for ${result.matchId}:`, {
-         code: (error as any)?.code,
-         message: (error as Error)?.message,
-         stack: (error as Error)?.stack,
-         originalError: error // Log the original error object
-      });
-    // Re-throw any other unexpected errors
+    }
+
+    console.error(`Detailed Error updating match result for ${result.matchId}:`, {
+        code: (error as any)?.code,
+        message: (error as Error)?.message,
+        stack: (error as Error)?.stack,
+        originalError: error
+    });
     throw new Error(errorMessage);
   }
 }
