@@ -355,7 +355,6 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
         if (errorCode === 'permission-denied') {
             // Highlight permission issue specifically
             errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Please check Firestore security rules for the 'matchResults' collection.`;
-            // console.error(errorMessage); // Comment out the console error for permission denied as we return null
             // ****** Return null instead of throwing on permission denied ******
             return null;
         } else {
@@ -444,7 +443,9 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
         const errorCode = error.code;
         errorMessage = `Firestore error updating result for ${result.matchId} (${errorCode}): ${error.message}`;
         if (errorCode === 'permission-denied') { // Use string code
+           // Make the error message clearer about needing to check rules
            errorMessage = `Permission denied updating result for ${result.matchId}. Check Firestore security rules for 'matchResults'.`;
+           console.error("PERMISSION ERROR:", errorMessage); // Explicitly log permission error
         } else if (errorCode === 'invalid-argument') { // Check for invalid data error
            errorMessage = `Invalid data provided for match result ${result.matchId}. Check field values (especially undefined). Error: ${error.message}`;
         }
@@ -461,3 +462,6 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
     throw new Error(errorMessage);
   }
 }
+
+
+      
