@@ -11,7 +11,7 @@ const leaderboardData = [
   { position: 2, team: 'Dracarys', points: 22, change: 'down', logo: 'https://picsum.photos/seed/Dracarys/40/40?grayscale' },
   { position: 3, team: 'Aetos', points: 20, change: 'same', logo: 'https://picsum.photos/seed/Aetos/40/40?grayscale' },
   { position: 4, team: 'Xanthus', points: 18, change: 'up', logo: 'https://picsum.photos/seed/Xanthus/40/40?grayscale' },
-  { position: 5, team: 'Griffin Squad', points: 15, change: 'same', logo: 'https://picsum.photos/seed/Griffin/40/40?grayscale' },
+ // Removed Griffin Squad
 ];
 
 // Helper to get team initial

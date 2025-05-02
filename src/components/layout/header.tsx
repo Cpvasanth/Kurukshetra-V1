@@ -8,7 +8,7 @@ import { Menu, X, Trophy, LogIn, LogOut, Loader2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { getAuth, onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client'; // Import initialized auth instance
+import { auth, firebaseInitializationError } from '@/lib/firebase/client'; // Import initialized auth instance and error
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -36,7 +36,7 @@ const AnimatedLogo = () => {
           visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'
         )}
       >
-        Scoreboard Central
+        Kurukshetra {/* Updated Name */}
       </span>
     </Link>
   );
@@ -54,15 +54,28 @@ export function Header() {
 
    // Listen for auth state changes
    useEffect(() => {
-     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-       setUser(currentUser);
-       setAuthLoading(false); // Auth state is now known
-     });
-     // Cleanup subscription on unmount
-     return () => unsubscribe();
+     if (firebaseInitializationError) {
+        // If Firebase failed to initialize, don't attempt to use auth
+        setAuthLoading(false);
+        return;
+     }
+     // Ensure auth is initialized before subscribing
+     if (auth) {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        setAuthLoading(false); // Auth state is now known
+        });
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
+     } else {
+        // Auth is null, likely due to initialization error handled above
+        setAuthLoading(false);
+     }
+
    }, []);
 
    const handleSignOut = async () => {
+     if (!auth) return; // Prevent sign out if auth not initialized
      try {
        await signOut(auth);
        toast({ title: "Signed Out", description: "Logged out successfully." });
@@ -147,7 +160,7 @@ export function Header() {
               <div className="flex justify-between items-center mb-6">
                  <Link href="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
                     <Trophy className="h-6 w-6 text-accent" />
-                    <span className="text-xl font-bold text-accent">Scoreboard</span>
+                     <span className="text-xl font-bold text-accent">Kurukshetra</span> {/* Updated Name */}
                  </Link>
                 <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-primary-foreground hover:bg-primary/90">
                   <X className="h-6 w-6" />
@@ -193,7 +206,7 @@ export function Header() {
         {/* Banner - Desktop */}
        {!isMobile && (
         <div className="bg-accent text-accent-foreground text-center py-2 text-sm font-medium">
-          Welcome to Scoreboard Central - Your hub for all sports action!
+          Welcome to Kurukshetra - Your hub for all sports action! {/* Updated Name */}
         </div>
       )}
        {/* Banner - Mobile (could be different or omitted based on design preference) */}

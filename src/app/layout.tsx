@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Scoreboard Central',
+  title: 'Kurukshetra', // Updated title
   description: 'Sports event scheduling and management',
 };
 

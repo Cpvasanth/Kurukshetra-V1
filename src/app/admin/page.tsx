@@ -9,7 +9,7 @@ import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation'; // Use next/navigation for App Router
 import { useToast } from "@/hooks/use-toast";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client'; // Import initialized auth instance
+import { auth, firebaseInitializationError } from '@/lib/firebase/client'; // Import initialized auth instance and error
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
@@ -24,20 +24,33 @@ export default function AdminLoginPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // User is signed in, redirect to dashboard
-        router.replace('/admin/dashboard'); // Use replace to avoid back button going to login
-      }
-    });
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
+    if (firebaseInitializationError) {
+      // If Firebase failed, don't attempt auth redirects
+      return;
+    }
+    if (auth) {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // User is signed in, redirect to dashboard
+            router.replace('/admin/dashboard'); // Use replace to avoid back button going to login
+        }
+        });
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
+    }
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null); // Clear previous errors
+
+    if (!auth) {
+        setError("Authentication service is unavailable. Please check configuration.");
+        setIsLoading(false);
+        return;
+    }
+
 
     try {
       // Use Firebase Authentication
@@ -87,7 +100,7 @@ export default function AdminLoginPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-primary">Admin Login</CardTitle>
-          <CardDescription>Access the Scoreboard Central dashboard</CardDescription>
+          <CardDescription>Access the Kurukshetra dashboard</CardDescription> {/* Updated Name */}
         </CardHeader>
         <CardContent>
            {error && (
@@ -138,9 +151,18 @@ export default function AdminLoginPage() {
                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                </Button>
             </div>
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isLoading || !!firebaseInitializationError}>
+               {isLoading ? 'Logging in...' : 'Login'}
             </Button>
+             {firebaseInitializationError && (
+                 <Alert variant="destructive" className="mt-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Configuration Error</AlertTitle>
+                    <AlertDescription>
+                        Firebase could not be initialized. Login is disabled. Check console and .env.local.
+                    </AlertDescription>
+                </Alert>
+             )}
           </form>
         </CardContent>
          <CardFooter className="text-center text-xs text-muted-foreground">
