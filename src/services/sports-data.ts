@@ -88,7 +88,7 @@ export interface MatchResult {
   /**
    * Optional URL of the winning team's photo. Stored as string or not present.
    */
-  winningTeamPhotoUrl?: string | null; // Allow null explicitly if needed, but primarily string or absence
+  winningTeamPhotoUrl?: string; // Changed from potentially null to just optional string
 }
 
 
@@ -228,7 +228,7 @@ export async function createSportsEvent(eventData: {
         errorMessage = error.message;
       }
       // Log the detailed error object regardless of type
-      console.error("Detailed Error creating sports event:", {
+     console.error("Detailed Error creating sports event:", {
          code: (error as any)?.code, // Use optional chaining
          message: (error as Error)?.message, // Use optional chaining
          stack: (error as Error)?.stack, // Use optional chaining
@@ -311,7 +311,7 @@ export async function updateSportsEvent(event: SportsEvent): Promise<SportsEvent
  * The result document ID should be the same as the match event ID.
  * IMPORTANT: Ensure Firestore security rules allow read access to the 'matchResults' collection.
  * @param matchId The ID of the match to retrieve the result for.
- * @returns A promise that resolves to a MatchResult object or null if no result exists.
+ * @returns A promise that resolves to a MatchResult object or null if no result exists or permission denied.
  */
 export async function getMatchResult(matchId: string): Promise<MatchResult | null> {
   console.log(`Fetching result for match ID: ${matchId} from Firestore...`);
@@ -357,6 +357,8 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
             // Highlight permission issue specifically
             errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Please check Firestore security rules for the 'matchResults' collection.`;
             console.error(errorMessage); // Log the specific permission error message
+            // ****** Return null instead of throwing on permission denied ******
+            return null;
         } else {
             errorMessage = `Firestore error fetching result for ${matchId} (${errorCode}): ${error.message}`;
         }
@@ -372,11 +374,11 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
         originalError: error // Log the original error object
     });
 
-    // Throw the error to be caught by the calling function (e.g., in useEffect)
-    // Avoid throwing here if you want the UI to handle the null case gracefully.
-    // Consider returning null instead of throwing for fetch errors unless it's critical.
-    // throw new Error(errorMessage);
-     return null; // Return null on error to prevent crashing the UI, let caller handle it
+    // Return null for other errors as well to let the UI handle it,
+    // or throw if the error is critical and should halt execution.
+    // Consider the impact on the calling components (e.g., refreshData).
+    // throw new Error(errorMessage); // Re-throw if necessary
+    return null; // Return null for other fetch errors too
   }
 }
 
@@ -401,7 +403,7 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
     // Firestore cannot store 'undefined'. If the URL is empty, null, or undefined,
     // it should either be omitted or explicitly set to null if your app logic requires it.
     // Here, we omit it if it's falsy (empty string, null, undefined).
-    const dataToSet: Omit<MatchResult, 'winningTeamPhotoUrl'> & { winningTeamPhotoUrl?: string } = {
+    const dataToSet: Partial<MatchResult> = { // Make fields optional for update
       matchId: result.matchId,
       team1Score: result.team1Score ?? 0, // Default score to 0 if null/undefined
       team2Score: result.team2Score ?? 0, // Default score to 0 if null/undefined
@@ -411,19 +413,38 @@ export async function updateMatchResult(result: MatchResult): Promise<MatchResul
     // Only add winningTeamPhotoUrl if it's a non-empty string
     if (result.winningTeamPhotoUrl && typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') {
       dataToSet.winningTeamPhotoUrl = result.winningTeamPhotoUrl;
+    } else {
+      // If photoUrl is empty/null/undefined, ensure it's not set as undefined
+      // We can omit it, or explicitly set to null if needed by schema/logic
+      // Omiting is safer if `undefined` causes issues.
+      // delete dataToSet.winningTeamPhotoUrl; // Alternative: explicitly remove
+       // If you need to REMOVE the field, use updateDoc with deleteField()
+       // For simplicity here, we just don't add it if it's empty/invalid.
     }
 
     console.log("Data being sent to Firestore setDoc:", dataToSet);
 
-    // Use setDoc with merge: true to create or update fields
+    // Use setDoc with merge: true to create or update specified fields
+    // This won't delete existing fields not included in dataToSet
     await setDoc(resultRef, dataToSet, { merge: true });
 
     console.log("Updated/Created result for match ID:", result.matchId);
-    // Return the result object reflecting what was potentially stored
-    return {
-        ...result, // Start with incoming data
-        winningTeamPhotoUrl: dataToSet.winningTeamPhotoUrl // Ensure photo URL reflects stored state
-    };
+    // Fetch the updated doc to return the actual stored state
+    const updatedDocSnap = await getDoc(resultRef);
+    if (updatedDocSnap.exists()) {
+        const updatedData = updatedDocSnap.data();
+         return {
+             matchId: updatedDocSnap.id,
+             team1Score: updatedData.team1Score ?? 0,
+             team2Score: updatedData.team2Score ?? 0,
+             winningTeam: updatedData.winningTeam ?? 'N/A',
+             winningTeamPhotoUrl: updatedData.winningTeamPhotoUrl ?? undefined, // Reflect actual state
+         };
+    } else {
+        // Should not happen after setDoc, but handle defensively
+        throw new Error("Failed to retrieve updated result after setDoc.");
+    }
+
   } catch (error: any) { // Use 'any' to check for 'code' property
     console.error(`Error updating match result for ID ${result.matchId}:`, error);
     let errorMessage = `Could not update result for match ID ${result.matchId}.`;
