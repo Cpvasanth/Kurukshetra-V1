@@ -1,26 +1,23 @@
+
 'use client';
 
+import { useState, useEffect } from 'react'; // Import useState and useEffect
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowUp, ArrowDown, Minus } from 'lucide-react'; // Icons for position change
-
-// Placeholder data - replace with actual data fetching
-const leaderboardData = [
-  { position: 1, team: 'Skylaros', points: 25, change: 'up', logo: 'https://picsum.photos/seed/Skylaros/40/40?grayscale' },
-  { position: 2, team: 'Dracarys', points: 22, change: 'down', logo: 'https://picsum.photos/seed/Dracarys/40/40?grayscale' },
-  { position: 3, team: 'Aetos', points: 20, change: 'same', logo: 'https://picsum.photos/seed/Aetos/40/40?grayscale' },
-  { position: 4, team: 'Xanthus', points: 18, change: 'up', logo: 'https://picsum.photos/seed/Xanthus/40/40?grayscale' },
- // Removed Griffin Squad
-];
+import { ArrowUp, ArrowDown, Minus, Loader2 } from 'lucide-react'; // Icons for position change, Loader2 for loading
+import { getLeaderboardStandings } from '@/services/sports-data'; // Import Firestore function
+import type { TeamStanding } from '@/services/sports-data'; // Import TeamStanding type
+import { useToast } from '@/hooks/use-toast';
 
 // Helper to get team initial
 const getInitials = (name: string) => {
-  return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  return name?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'; // Add fallback
 }
 
-// Helper to render change icon
-const renderChangeIcon = (change: 'up' | 'down' | 'same') => {
+// Helper to render change icon (remains the same, assumes change logic is handled externally or simplified)
+// For now, we'll just show 'same' as we don't track change from Firestore directly here
+const renderChangeIcon = (change: 'up' | 'down' | 'same' = 'same') => {
   switch (change) {
     case 'up':
       return <ArrowUp className="h-4 w-4 text-green-500" />;
@@ -32,7 +29,40 @@ const renderChangeIcon = (change: 'up' | 'down' | 'same') => {
 };
 
 export function LeaderboardTable() {
-  // Add loading state if needed
+  const [leaderboardData, setLeaderboardData] = useState<TeamStanding[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    async function loadLeaderboard() {
+      setLoading(true);
+      try {
+        const standings = await getLeaderboardStandings();
+        setLeaderboardData(standings);
+      } catch (error) {
+        console.error("Failed to load leaderboard data:", error);
+        toast({
+          title: "Error Loading Leaderboard",
+          description: "Could not fetch team standings. Please try again later.",
+          variant: "destructive",
+        });
+        setLeaderboardData([]); // Set to empty array on error
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadLeaderboard();
+  }, [toast]); // Re-fetch if toast instance changes (unlikely but good practice)
+
+  if (loading) {
+     return (
+       <div className="flex justify-center items-center h-[200px] rounded-lg border bg-card">
+         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+         <p className="ml-3 text-muted-foreground">Loading Leaderboard...</p>
+       </div>
+     );
+   }
+
   return (
     <div className="rounded-lg border overflow-hidden shadow-md bg-card">
       <Table>
@@ -41,36 +71,41 @@ export function LeaderboardTable() {
             <TableHead className="w-[80px] text-center">Position</TableHead>
             <TableHead>Team</TableHead>
             <TableHead className="text-right">Points</TableHead>
-            <TableHead className="w-[80px] text-center">Change</TableHead>
+             {/* <TableHead className="w-[80px] text-center">Change</TableHead> // Hide 'Change' for now */}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {leaderboardData.map((entry) => (
-            <TableRow key={entry.team} className="hover:bg-muted/50 transition-colors">
-              <TableCell className="font-medium text-center">{entry.position}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={entry.logo} alt={`${entry.team} logo`} data-ai-hint={`${entry.team} logo`} />
-                    <AvatarFallback>{getInitials(entry.team)}</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium">{entry.team}</span>
-                </div>
-              </TableCell>
-              <TableCell className="text-right font-semibold text-primary">{entry.points}</TableCell>
-              <TableCell className="text-center">
-                 <div className="flex justify-center items-center">
-                    {renderChangeIcon(entry.change as 'up' | 'down' | 'same')}
-                 </div>
-              </TableCell>
-            </TableRow>
-          ))}
+          {leaderboardData.length > 0 ? (
+             leaderboardData.map((entry, index) => ( // Use index + 1 for position
+                <TableRow key={entry.id || entry.teamName} className="hover:bg-muted/50 transition-colors">
+                <TableCell className="font-medium text-center">{index + 1}</TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                         {/* Use optional chaining for logo */}
+                        <AvatarImage src={entry.logo ?? undefined} alt={`${entry.teamName} logo`} data-ai-hint={`${entry.teamName} logo`} />
+                        <AvatarFallback>{getInitials(entry.teamName)}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{entry.teamName}</span>
+                    </div>
+                </TableCell>
+                <TableCell className="text-right font-semibold text-primary">{entry.points}</TableCell>
+                 {/* <TableCell className="text-center">
+                    <div className="flex justify-center items-center">
+                    {renderChangeIcon()}
+                    </div>
+                </TableCell> */}
+                </TableRow>
+            ))
+          ) : (
+             <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                    No leaderboard data available yet.
+                </TableCell>
+             </TableRow>
+          )}
         </TableBody>
       </Table>
-       {/* Add pagination or view more if needed */}
-       {/* <div className="p-4 text-center">
-         <Button variant="link">View Full Leaderboard</Button>
-       </div> */}
     </div>
   );
 }

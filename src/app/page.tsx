@@ -265,7 +265,7 @@ const HomePage: NextPage = () => {
       {/* Leaderboard Section */}
       <section>
         <h2 className="text-2xl font-semibold mb-4 text-primary">Leaderboard</h2>
-         {/* Leaderboard might need its own loading state if data comes from elsewhere */}
+         {/* LeaderboardTable now fetches its own data */}
          <LeaderboardTable />
       </section>
     </div>
@@ -273,4 +273,3 @@ const HomePage: NextPage = () => {
 };
 
 export default HomePage;
-

@@ -91,6 +91,28 @@ export interface MatchResult {
   winningTeamPhotoUrl?: string;
 }
 
+/**
+ * Represents a team's standing in the leaderboard.
+ */
+export interface TeamStanding {
+    /**
+     * The unique identifier for the team standing (usually the team name).
+     */
+    id: string;
+    /**
+     * The name of the team.
+     */
+    teamName: string;
+    /**
+     * The total points accumulated by the team.
+     */
+    points: number;
+    /**
+     * Optional URL of the team's logo.
+     */
+    logo?: string;
+}
+
 
 // Helper function to ensure db is initialized
 const getDbInstance = () => {
@@ -230,12 +252,12 @@ export async function createSportsEvent(eventData: {
         errorMessage = error.message;
       }
       // Log the detailed error object regardless of type
-      console.error("Detailed Error creating sports event:", {
-          code: (error as any)?.code, // Use optional chaining
-          message: (error as Error)?.message, // Use optional chaining
-          stack: (error as Error)?.stack, // Use optional chaining
-          originalError: error // Log the original error object
-      });
+     console.error("Detailed Error creating sports event:", {
+         code: (error as any)?.code, // Use optional chaining
+         message: (error as Error)?.message, // Use optional chaining
+         stack: (error as Error)?.stack, // Use optional chaining
+         originalError: error // Log the original error object
+     });
      throw new Error(errorMessage);
    }
 }
@@ -318,69 +340,69 @@ export async function updateSportsEvent(event: SportsEvent): Promise<SportsEvent
  * @returns A promise that resolves to a MatchResult object or null if no result exists or permission denied.
  */
 export async function getMatchResult(matchId: string): Promise<MatchResult | null> {
-  console.log(`Fetching result for match ID: ${matchId} from Firestore...`);
-  if (!matchId) {
-      console.warn("getMatchResult called with empty matchId.");
-      return null;
-  }
-  try {
-    const firestoreDb = getDbInstance();
-    const resultRef = doc(firestoreDb, 'matchResults', matchId); // Use matchId as document ID
-    const docSnap = await getDoc(resultRef);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      // Ensure numeric scores, provide defaults if missing/invalid
-      const team1Score = typeof data.team1Score === 'number' ? data.team1Score : 0;
-      const team2Score = typeof data.team2Score === 'number' ? data.team2Score : 0;
-      const winningTeam = typeof data.winningTeam === 'string' ? data.winningTeam : 'N/A';
-      // Handle photo URL: accept string, map null/undefined to undefined
-      const winningTeamPhotoUrl = (typeof data.winningTeamPhotoUrl === 'string' && data.winningTeamPhotoUrl) ? data.winningTeamPhotoUrl : undefined;
-
-      const result: MatchResult = {
-          matchId: docSnap.id,
-          team1Score,
-          team2Score,
-          winningTeam,
-          ...(winningTeamPhotoUrl && { winningTeamPhotoUrl }), // Conditionally add photo URL
-      };
-      console.log(`Found result for match ${matchId}:`, result);
-      return result;
-    } else {
-      console.log(`No result found for match ${matchId}`);
-      return null;
+    console.log(`Fetching result for match ID: ${matchId} from Firestore...`);
+    if (!matchId) {
+        console.warn("getMatchResult called with empty matchId.");
+        return null;
     }
-  } catch (error: any) { // Use 'any' to check for 'code' property
-    let errorMessage = `Could not fetch result for match ID ${matchId}.`;
+    try {
+        const firestoreDb = getDbInstance();
+        const resultRef = doc(firestoreDb, 'matchResults', matchId); // Use matchId as document ID
+        const docSnap = await getDoc(resultRef);
 
-    // Check FirestoreError and specific codes
-    if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
-        const errorCode = error.code;
-        if (errorCode === 'permission-denied') {
-            // Highlight permission issue specifically
-            errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Please check Firestore security rules for the 'matchResults' collection.`;
-            console.warn(errorMessage); // Use console.warn for permission errors to reduce noise
-            // ****** Return null instead of throwing on permission denied ******
-            return null;
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Ensure numeric scores, provide defaults if missing/invalid
+            const team1Score = typeof data.team1Score === 'number' ? data.team1Score : 0;
+            const team2Score = typeof data.team2Score === 'number' ? data.team2Score : 0;
+            const winningTeam = typeof data.winningTeam === 'string' ? data.winningTeam : 'N/A';
+            // Handle photo URL: accept string, map null/undefined to undefined
+            const winningTeamPhotoUrl = (typeof data.winningTeamPhotoUrl === 'string' && data.winningTeamPhotoUrl) ? data.winningTeamPhotoUrl : undefined;
+
+            const result: MatchResult = {
+                matchId: docSnap.id,
+                team1Score,
+                team2Score,
+                winningTeam,
+                ...(winningTeamPhotoUrl && { winningTeamPhotoUrl }), // Conditionally add photo URL
+            };
+            console.log(`Found result for match ${matchId}:`, result);
+            return result;
         } else {
-            errorMessage = `Firestore error fetching result for ${matchId} (${errorCode}): ${error.message}`;
+            console.log(`No result found for match ${matchId}`);
+            return null;
         }
-    } else if (error instanceof Error) {
-        errorMessage = `Error fetching result for ${matchId}: ${error.message}`;
+    } catch (error: any) { // Use 'any' to check for 'code' property
+        let errorMessage = `Could not fetch result for match ID ${matchId}.`;
+
+        // Check FirestoreError and specific codes
+        if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+            const errorCode = error.code;
+            if (errorCode === 'permission-denied') {
+                // Highlight permission issue specifically
+                errorMessage = `Error fetching result for ${matchId}: Missing or insufficient permissions. Please check Firestore security rules for the 'matchResults' collection.`;
+                console.error(errorMessage); // Log the specific permission error message
+                // ****** Return null instead of throwing on permission denied ******
+                return null;
+            } else {
+                errorMessage = `Firestore error fetching result for ${matchId} (${errorCode}): ${error.message}`;
+            }
+        } else if (error instanceof Error) {
+            errorMessage = `Error fetching result for ${matchId}: ${error.message}`;
+        }
+
+        // Log the detailed error object regardless of type
+        // Include the error object itself and its string representation
+        console.error(`Detailed Error fetching match result for ${matchId}:`, {
+            code: (error as any)?.code,
+            message: (error as Error)?.message,
+            stack: (error as Error)?.stack,
+            originalError: error, // Log the raw error object
+        });
+
+         // Return null for other fetch errors as well to let the UI handle it.
+         return null;
     }
-
-    // Log the detailed error object regardless of type
-    // Include the error object itself and its string representation
-    console.error(`Detailed Error fetching match result for ${matchId}:`, {
-        code: (error as any)?.code,
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack,
-        originalError: error, // Log the raw error object
-    });
-
-     // Return null for other fetch errors as well to let the UI handle it.
-     return null;
-  }
 }
 
 
@@ -392,75 +414,199 @@ export async function getMatchResult(matchId: string): Promise<MatchResult | nul
  * @returns A promise that resolves to the updated/created MatchResult object.
  */
 export async function updateMatchResult(result: MatchResult): Promise<MatchResult> {
-  console.log("Updating/Creating match result in Firestore:", result);
-  if (!result.matchId) {
-     console.error("Update Match Result Error: Match ID is required.");
-     throw new Error("Match ID is required to update a result.");
-  }
-  try {
-     const firestoreDb = getDbInstance();
-    const resultRef = doc(firestoreDb, 'matchResults', result.matchId); // Use matchId as document ID
-
-    // Prepare data for Firestore. Only include fields that have values.
-    const dataToSet: Partial<MatchResult> = {
-      matchId: result.matchId,
-      team1Score: result.team1Score ?? 0,
-      team2Score: result.team2Score ?? 0,
-      winningTeam: result.winningTeam ?? 'N/A',
-      // Only include winningTeamPhotoUrl if it's a non-empty string
-      ...(typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '' && { winningTeamPhotoUrl: result.winningTeamPhotoUrl }),
-    };
-
-    console.log("Data being sent to Firestore setDoc:", dataToSet);
-
-    // Use setDoc with merge: true to create or update specified fields
-    await setDoc(resultRef, dataToSet, { merge: true });
-
-    console.log("Updated/Created result for match ID:", result.matchId);
-    // Fetch the updated doc to return the actual stored state
-    const updatedDocSnap = await getDoc(resultRef);
-    if (updatedDocSnap.exists()) {
-        const updatedData = updatedDocSnap.data();
-         return {
-             matchId: updatedDocSnap.id,
-             team1Score: updatedData?.team1Score ?? 0,
-             team2Score: updatedData?.team2Score ?? 0,
-             winningTeam: updatedData?.winningTeam ?? 'N/A',
-             winningTeamPhotoUrl: updatedData?.winningTeamPhotoUrl || undefined,
-         } as MatchResult;
-    } else {
-        console.error(`Failed to retrieve updated result after setDoc for match ID: ${result.matchId}`);
-        throw new Error("Failed to retrieve updated result after setDoc.");
+    console.log("Updating/Creating match result in Firestore:", result);
+    if (!result.matchId) {
+        console.error("Update Match Result Error: Match ID is required.");
+        throw new Error("Match ID is required to update a result.");
     }
+    try {
+        const firestoreDb = getDbInstance();
+        const resultRef = doc(firestoreDb, 'matchResults', result.matchId); // Use matchId as document ID
 
-  } catch (error: any) {
-    console.error(`Error updating match result for ID ${result.matchId}:`, error);
-    let errorMessage = `Could not update result for match ID ${result.matchId}.`;
+        // Prepare data for Firestore. Ensure winningTeamPhotoUrl is handled correctly.
+        const dataToSet: Omit<MatchResult, 'winningTeamPhotoUrl'> & { winningTeamPhotoUrl?: string } = {
+            matchId: result.matchId,
+            team1Score: result.team1Score ?? 0,
+            team2Score: result.team2Score ?? 0,
+            winningTeam: result.winningTeam ?? 'N/A',
+        };
 
-    if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
-        const errorCode = error.code;
-        if (errorCode === 'permission-denied') {
-            errorMessage = `Permission denied updating result for ${result.matchId}. Check Firestore security rules for 'matchResults'.`;
-            console.error("PERMISSION ERROR:", errorMessage);
-            // Re-throw permission errors specifically for updates as it indicates a failed operation
-            throw new Error(errorMessage);
-        } else if (errorCode === 'invalid-argument') {
-           errorMessage = `Invalid data provided for match result ${result.matchId}. Check field values. Error: ${error.message}`;
-           console.error("INVALID DATA ERROR:", errorMessage, "Data Sent:", result);
-           throw new Error(errorMessage);
-        } else {
-           errorMessage = `Firestore error updating result for ${result.matchId} (${errorCode}): ${error.message}`;
+        // Only include winningTeamPhotoUrl if it's a non-empty string
+        if (typeof result.winningTeamPhotoUrl === 'string' && result.winningTeamPhotoUrl.trim() !== '') {
+            dataToSet.winningTeamPhotoUrl = result.winningTeamPhotoUrl;
         }
-    } else if (error instanceof Error) {
-        errorMessage = `Error updating result for ${result.matchId}: ${error.message}`;
-    }
 
-    console.error(`Detailed Error updating match result for ${result.matchId}:`, {
-        code: (error as any)?.code,
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack,
-        originalError: error
-    });
-    throw new Error(errorMessage);
-  }
+        console.log("Data being sent to Firestore setDoc:", dataToSet);
+
+        // Use setDoc with merge: true to create or update specified fields
+        await setDoc(resultRef, dataToSet, { merge: true });
+
+        console.log("Updated/Created result for match ID:", result.matchId);
+        // Fetch the updated doc to return the actual stored state
+        const updatedDocSnap = await getDoc(resultRef);
+        if (updatedDocSnap.exists()) {
+            const updatedData = updatedDocSnap.data();
+            return {
+                matchId: updatedDocSnap.id,
+                team1Score: updatedData?.team1Score ?? 0,
+                team2Score: updatedData?.team2Score ?? 0,
+                winningTeam: updatedData?.winningTeam ?? 'N/A',
+                winningTeamPhotoUrl: updatedData?.winningTeamPhotoUrl || undefined,
+            } as MatchResult;
+        } else {
+            console.error(`Failed to retrieve updated result after setDoc for match ID: ${result.matchId}`);
+            throw new Error("Failed to retrieve updated result after setDoc.");
+        }
+
+    } catch (error: any) {
+        console.error(`Error updating match result for ID ${result.matchId}:`, error);
+        let errorMessage = `Could not update result for match ID ${result.matchId}.`;
+
+        if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+            const errorCode = error.code;
+            if (errorCode === 'permission-denied') {
+                errorMessage = `Permission denied updating result for ${result.matchId}. Check Firestore security rules for 'matchResults'.`;
+                console.error("PERMISSION ERROR:", errorMessage);
+            } else if (errorCode === 'invalid-argument') {
+                errorMessage = `Invalid data provided for match result ${result.matchId}. Check field values. Error: ${error.message}`;
+                console.error("INVALID DATA ERROR:", errorMessage, "Data Sent:", result);
+            } else {
+                errorMessage = `Firestore error updating result for ${result.matchId} (${errorCode}): ${error.message}`;
+            }
+        } else if (error instanceof Error) {
+            errorMessage = `Error updating result for ${result.matchId}: ${error.message}`;
+        }
+
+        console.error(`Detailed Error updating match result for ${result.matchId}:`, {
+            code: (error as any)?.code,
+            message: (error as Error)?.message,
+            stack: (error as Error)?.stack,
+            originalError: error
+        });
+        // Re-throw permission or validation errors as they likely need specific handling
+        if ((error as FirestoreError)?.code === 'permission-denied' || (error as FirestoreError)?.code === 'invalid-argument') {
+            throw new Error(errorMessage);
+        }
+        // For other errors, you might decide to throw a generic error or handle differently
+        throw new Error(errorMessage);
+    }
 }
+
+/**
+ * Asynchronously retrieves the leaderboard (team standings) from Firestore.
+ * Assumes standings are stored in a 'leaderboard' collection with team names as document IDs.
+ * Orders by points descending.
+ * @returns A promise that resolves to an array of TeamStanding objects.
+ */
+export async function getLeaderboardStandings(): Promise<TeamStanding[]> {
+    console.log("Fetching leaderboard standings from Firestore...");
+    try {
+        const firestoreDb = getDbInstance();
+        const leaderboardCollection = collection(firestoreDb, 'leaderboard');
+        const standingsQuery = query(leaderboardCollection, orderBy('points', 'desc'));
+        const querySnapshot = await getDocs(standingsQuery);
+        const standings = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                teamName: data.teamName ?? doc.id, // Fallback to ID if name is missing
+                points: typeof data.points === 'number' ? data.points : 0,
+                logo: data.logo ?? undefined, // Store logo URL if available
+            } as TeamStanding;
+        });
+        console.log("Fetched leaderboard standings count:", standings.length);
+        return standings;
+    } catch (error: any) {
+        console.error("Error fetching leaderboard standings: ", error);
+        let errorMessage = "Could not fetch leaderboard standings.";
+        if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+            const errorCode = error.code;
+            errorMessage = `Firestore error (${errorCode}): ${error.message}`;
+            if (errorCode === 'permission-denied') {
+                errorMessage = "Permission denied fetching leaderboard. Check Firestore security rules for 'leaderboard'.";
+                console.warn(errorMessage); // Warn for permission issues
+                 // Return empty array on permission denial to avoid crashing UI
+                 return [];
+            }
+        } else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+        console.error("Detailed Error fetching leaderboard:", {
+             code: (error as any)?.code,
+             message: (error as Error)?.message,
+             stack: (error as Error)?.stack,
+             originalError: error
+        });
+        throw new Error(errorMessage);
+    }
+}
+
+/**
+ * Asynchronously updates or creates a team's standing in the leaderboard.
+ * Uses the teamName as the document ID in the 'leaderboard' collection.
+ * @param standing The team standing data to update/create.
+ * @returns A promise that resolves when the operation is complete.
+ */
+export async function updateTeamStanding(standing: { teamName: string; points: number; logo?: string }): Promise<void> {
+    console.log("Updating/Creating team standing in Firestore:", standing);
+    if (!standing.teamName) {
+        console.error("Update Team Standing Error: Team name is required.");
+        throw new Error("Team name is required to update a standing.");
+    }
+    try {
+        const firestoreDb = getDbInstance();
+        // Use teamName as the document ID for simplicity and uniqueness
+        const standingRef = doc(firestoreDb, 'leaderboard', standing.teamName);
+
+        // Prepare data for Firestore.
+        const dataToSet: Omit<TeamStanding, 'id'> = {
+            teamName: standing.teamName,
+            points: standing.points ?? 0, // Ensure points is a number
+        };
+
+        // Only include logo if it's provided and non-empty
+        if (typeof standing.logo === 'string' && standing.logo.trim() !== '') {
+            dataToSet.logo = standing.logo;
+        }
+
+        console.log("Data being sent to Firestore setDoc for leaderboard:", dataToSet);
+
+        // Use setDoc with merge: true to create or update the team's standing
+        await setDoc(standingRef, dataToSet, { merge: true });
+
+        console.log("Updated/Created standing for team:", standing.teamName);
+
+    } catch (error: any) {
+        console.error(`Error updating team standing for ${standing.teamName}:`, error);
+        let errorMessage = `Could not update standing for team ${standing.teamName}.`;
+
+        if (error instanceof FirestoreError || (error && typeof error.code === 'string')) {
+            const errorCode = error.code;
+             if (errorCode === 'permission-denied') {
+                 errorMessage = `Permission denied updating standing for ${standing.teamName}. Check Firestore security rules for 'leaderboard'.`;
+                 console.error("PERMISSION ERROR:", errorMessage);
+             } else if (errorCode === 'invalid-argument') {
+                errorMessage = `Invalid data provided for team standing ${standing.teamName}. Check field values. Error: ${error.message}`;
+                console.error("INVALID DATA ERROR:", errorMessage, "Data Sent:", standing);
+             } else {
+                errorMessage = `Firestore error updating standing for ${standing.teamName} (${errorCode}): ${error.message}`;
+             }
+        } else if (error instanceof Error) {
+            errorMessage = `Error updating standing for ${standing.teamName}: ${error.message}`;
+        }
+
+        console.error(`Detailed Error updating team standing for ${standing.teamName}:`, {
+            code: (error as any)?.code,
+            message: (error as Error)?.message,
+            stack: (error as Error)?.stack,
+            originalError: error
+        });
+         // Re-throw permission or validation errors
+         if ((error as FirestoreError)?.code === 'permission-denied' || (error as FirestoreError)?.code === 'invalid-argument') {
+            throw new Error(errorMessage);
+         }
+        // For other errors, throw a generic error or handle differently
+        throw new Error(errorMessage);
+    }
+}
+

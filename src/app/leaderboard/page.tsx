@@ -1,10 +1,11 @@
+
 'use client';
 
 import { LeaderboardTable } from '@/components/leaderboard-table';
 import { Trophy } from 'lucide-react';
 
 export default function LeaderboardPage() {
-  // In a real app, you might fetch more comprehensive leaderboard data here
+  // LeaderboardTable now fetches its own data
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
