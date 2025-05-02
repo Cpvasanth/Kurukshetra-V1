@@ -1,3 +1,4 @@
+
 'use client';
 
  import { useState, useEffect } from 'react';
@@ -7,11 +8,22 @@
  import { Skeleton } from '@/components/ui/skeleton';
  import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
  import { Badge } from '@/components/ui/badge';
- import { Trophy, Loader2 } from 'lucide-react';
+ import { Trophy, Loader2, Female, Male, UserCheck, Users } from 'lucide-react'; // Added gender icons
  import { format } from 'date-fns';
  import Image from 'next/image'; // Import next/image
  import { useToast } from '@/hooks/use-toast';
  import type { Timestamp } from 'firebase/firestore'; // Import Timestamp type
+
+ // Helper to get the appropriate icon for gender
+ const getGenderIcon = (gender: string) => {
+     switch (gender) {
+         case 'Boys': return <Male className="w-4 h-4 shrink-0" />;
+         case 'Girls': return <Female className="w-4 h-4 shrink-0" />;
+         case 'Mixed': return <UserCheck className="w-4 h-4 shrink-0" />;
+         default: return <Users className="w-4 h-4 shrink-0" />; // Fallback
+     }
+ }
+
 
  export default function ResultsPage() {
    const [events, setEvents] = useState<SportsEvent[]>([]);
@@ -25,7 +37,11 @@
         if (timestamp instanceof Date) {
             return timestamp; // Already a Date object
         }
-        return timestamp.toDate();
+         if (timestamp && typeof timestamp.toDate === 'function') {
+           return timestamp.toDate();
+         }
+         console.warn("Invalid timestamp received in results:", timestamp);
+        return new Date(); // Fallback
     };
 
 
@@ -70,7 +86,7 @@
     const filteredResults = results.filter(result => {
        const match = events.find(e => e.id === result.matchId);
        if (!match) return false; // Skip if match details not found
-       return selectedSport === 'all' || match.matchTitle.toLowerCase().includes(selectedSport.toLowerCase());
+       return selectedSport === 'all' || match.sport.toLowerCase() === selectedSport.toLowerCase(); // Filter by sport name
    });
 
 
@@ -91,7 +107,10 @@
        </section>
 
        <section>
-          <h2 className="text-xl font-semibold mb-4 text-primary">Completed Matches</h2>
+          <h2 className="text-xl font-semibold mb-4 text-primary">
+            Completed Matches
+             {selectedSport !== 'all' ? ` (${selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)})` : ''}
+          </h2>
          {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => ( <Skeleton key={`skel-res-pg-${i}`} className="h-[250px] rounded-lg" /> ))}
@@ -111,12 +130,18 @@
                      style={{ animationDelay: `${index * 100}ms` }}
                    >
                      <CardHeader className="p-4 bg-secondary">
-                       <CardTitle className="text-lg font-semibold text-secondary-foreground truncate">
-                         {match.matchTitle}
-                       </CardTitle>
-                       <CardDescription className="text-xs text-muted-foreground">
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-lg font-semibold text-secondary-foreground truncate mr-2">
+                            {match.matchTitle}
+                          </CardTitle>
+                          <Badge variant="outline" className="text-xs shrink-0 capitalize">{match.sport}</Badge>
+                        </div>
+                       <CardDescription className="text-xs text-muted-foreground mt-1">
                           {format(matchDate, 'PPP')} - {format(matchDate, 'p')} {/* Format date and time */}
                        </CardDescription>
+                        <CardDescription className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            {getGenderIcon(match.gender)} {match.gender}
+                        </CardDescription>
                      </CardHeader>
                      <CardContent className="p-4 space-y-3">
                        {result.winningTeamPhotoUrl && (

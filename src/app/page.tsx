@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { NextPage } from 'next';
@@ -16,14 +17,25 @@ import type { SportsEvent, MatchResult } from '@/services/sports-data';
 import { getSportsEvents, getMatchResult } from '@/services/sports-data'; // Use Firestore functions
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Clock, Calendar, Users, Trophy, Loader2 } from 'lucide-react';
+import { Clock, Calendar, Users, Trophy, Loader2, Female, Male, UserCheck } from 'lucide-react'; // Added gender icons
 import { useToast } from '@/hooks/use-toast';
 import type { Timestamp } from 'firebase/firestore'; // Import Timestamp type
+
+// Helper to get the appropriate icon for gender
+const getGenderIcon = (gender: string) => {
+    switch (gender) {
+        case 'Boys': return <Male className="w-4 h-4 shrink-0" />;
+        case 'Girls': return <Female className="w-4 h-4 shrink-0" />;
+        case 'Mixed': return <UserCheck className="w-4 h-4 shrink-0" />;
+        default: return <Users className="w-4 h-4 shrink-0" />; // Fallback
+    }
+}
 
 
 const HomePage: NextPage = () => {
   const [displayMode, setDisplayMode] = useState<'upcoming' | 'results'>('upcoming');
   const [selectedSport, setSelectedSport] = useState<string>('all');
+  // const [selectedGender, setSelectedGender] = useState<string>('all'); // Add state for gender filter if needed
   const [upcomingEvents, setUpcomingEvents] = useState<SportsEvent[]>([]);
   const [latestResults, setLatestResults] = useState<MatchResult[]>([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(true);
@@ -90,12 +102,16 @@ const HomePage: NextPage = () => {
 
 
   const filteredUpcomingEvents = upcomingEvents.filter(event =>
-    selectedSport === 'all' || event.matchTitle.toLowerCase().includes(selectedSport.toLowerCase()) // Simple filtering by title
+    (selectedSport === 'all' || event.sport.toLowerCase() === selectedSport.toLowerCase())
+    // && (selectedGender === 'all' || event.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic if needed
   );
 
-  const filteredResults = latestResults.filter(result =>
-     selectedSport === 'all' || upcomingEvents.find(e => e.id === result.matchId)?.matchTitle.toLowerCase().includes(selectedSport.toLowerCase()) // Filter results based on match title
-  );
+  const filteredResults = latestResults.filter(result => {
+     const match = upcomingEvents.find(e => e.id === result.matchId);
+     if (!match) return false; // Skip if match not found
+     return (selectedSport === 'all' || match.sport.toLowerCase() === selectedSport.toLowerCase())
+     // && (selectedGender === 'all' || match.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic if needed
+  });
 
 
   return (
@@ -104,6 +120,8 @@ const HomePage: NextPage = () => {
       <section>
         <h2 className="text-2xl font-semibold mb-4 text-primary">Filter by Sport</h2>
          <SportsFilter selectedSport={selectedSport} onSelectSport={setSelectedSport} />
+         {/* Optionally add Gender Filter Component here */}
+         {/* <GenderFilter selectedGender={selectedGender} onSelectGender={setSelectedGender} /> */}
       </section>
 
       {/* Match Display Toggle */}
@@ -138,16 +156,18 @@ const HomePage: NextPage = () => {
        <section>
          <h2 className="text-2xl font-semibold mb-4 text-primary">
            {displayMode === 'upcoming' ? 'Upcoming Matches' : 'Latest Results'}
+           {selectedSport !== 'all' ? ` (${selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)})` : ''}
+           {/* {selectedGender !== 'all' ? ` (${selectedGender.charAt(0).toUpperCase() + selectedGender.slice(1)})` : ''} */}
          </h2>
          {displayMode === 'upcoming' ? (
            loadingUpcoming ? (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {[...Array(3)].map((_, i) => ( <Skeleton key={`skel-up-${i}`} className="h-[200px] rounded-lg" /> ))}
+               {[...Array(3)].map((_, i) => ( <Skeleton key={`skel-up-${i}`} className="h-[250px] rounded-lg" /> ))}
              </div>
            ) : filteredUpcomingEvents.length > 0 ? (
               <MatchList events={filteredUpcomingEvents} />
            ) : (
-             <p className="text-muted-foreground text-center py-6">No upcoming matches found{selectedSport !== 'all' ? ` for ${selectedSport}` : ''}.</p>
+             <p className="text-muted-foreground text-center py-6">No upcoming matches found for the selected filters.</p>
            )
          ) : (
             loadingResults ? (
@@ -158,17 +178,27 @@ const HomePage: NextPage = () => {
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                {filteredResults.map((result) => {
                   const match = upcomingEvents.find(e => e.id === result.matchId);
-                  // Use a unique key combining prefix and id to prevent duplicates if result.matchId isn't guaranteed unique across sections
+                  // Use a unique key combining prefix and id
                   const cardKey = `result-card-${result.matchId}`;
                   return (
                      <Card key={cardKey} className="overflow-hidden transition-shadow duration-300 hover:shadow-lg">
                       <CardHeader className="bg-secondary p-4">
-                        <CardTitle className="text-lg font-semibold text-secondary-foreground truncate">
-                          {match?.matchTitle || `Match ${result.matchId}`}
-                        </CardTitle>
-                         <CardDescription className="text-xs text-muted-foreground">
+                        <div className="flex justify-between items-center">
+                            <CardTitle className="text-lg font-semibold text-secondary-foreground truncate mr-2">
+                            {match?.matchTitle || `Match ${result.matchId}`}
+                            </CardTitle>
+                            {match && (
+                                <Badge variant="outline" className="text-xs shrink-0 capitalize">{match.sport}</Badge>
+                            )}
+                        </div>
+                         <CardDescription className="text-xs text-muted-foreground mt-1">
                             {match ? `${format(getDateFromTimestamp(match.dateTime), 'PPP')} at ${format(getDateFromTimestamp(match.dateTime),'p')}` : 'Date unavailable'}
                           </CardDescription>
+                         {match && (
+                             <CardDescription className="text-xs text-muted-foreground flex items-center gap-1">
+                                 {getGenderIcon(match.gender)} {match.gender}
+                             </CardDescription>
+                         )}
                       </CardHeader>
                       <CardContent className="p-4 space-y-3">
                         <div className="flex justify-between items-center font-medium">
@@ -189,7 +219,7 @@ const HomePage: NextPage = () => {
                 })}
               </div>
             ) : (
-              <p className="text-muted-foreground text-center py-6">No results found{selectedSport !== 'all' ? ` for ${selectedSport}` : ''}.</p>
+              <p className="text-muted-foreground text-center py-6">No results found for the selected filters.</p>
             )
          )}
        </section>

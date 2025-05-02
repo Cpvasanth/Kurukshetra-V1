@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -16,10 +18,25 @@ import { CalendarIcon, CheckCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 import { createSportsEvent } from '@/services/sports-data'; // Import the actual service function
-import type { SportsEvent } from '@/services/sports-data';
+import type { SportsEvent, Sport, Gender } from '@/services/sports-data';
+
+
+// Define available sports and genders (could also be fetched or defined elsewhere)
+const availableSports: Sport[] = [
+  'Cricket', 'Football', 'Basketball', 'Carrom', 'Chess', 'Volleyball',
+  'Throwball', 'Table Tennis', 'Kho Kho', 'Badminton', 'Athletics Indoor', 'Athletics Outdoor', 'Other'
+];
+const availableGenders: Gender[] = ['Boys', 'Girls', 'Mixed'];
+
 
 const matchSchema = z.object({
   matchTitle: z.string().min(3, { message: 'Match title must be at least 3 characters.' }),
+  sport: z.enum(availableSports as [Sport, ...Sport[]], { // Use type assertion for enum
+    required_error: 'Please select a sport.',
+  }),
+   gender: z.enum(availableGenders as [Gender, ...Gender[]], { // Use type assertion for enum
+     required_error: 'Please select a gender category.',
+   }),
   matchType: z.enum(['Normal', 'Semi-final', 'Final'], { required_error: 'Please select a match type.' }),
   date: z.date({ required_error: 'Please select a date.' }),
   time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Invalid time format (HH:MM).' }),
@@ -47,6 +64,8 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
     resolver: zodResolver(matchSchema),
     defaultValues: {
       matchTitle: '',
+      sport: undefined, // Default to undefined
+      gender: undefined, // Default to undefined
       matchType: undefined,
       date: undefined,
       time: '',
@@ -60,8 +79,10 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
     setShowSuccess(false);
     console.log('Submitting match data:', data);
 
-    const newEventData: Omit<SportsEvent, 'id'> = {
+    const newEventData: Omit<SportsEvent, 'id' | 'dateTime'> = {
         matchTitle: data.matchTitle,
+        sport: data.sport, // Include sport
+        gender: data.gender, // Include gender
         matchType: data.matchType,
         date: format(data.date, 'yyyy-MM-dd'), // Format date for storage/API
         time: data.time,
@@ -81,7 +102,7 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
             description: (
                  <div className="flex items-center text-green-600">
                     <CheckCircle className="mr-2 h-5 w-5" />
-                    <span>{createdEvent.matchTitle} scheduled successfully.</span>
+                    <span>{createdEvent.matchTitle} ({createdEvent.sport}, {createdEvent.gender}) scheduled successfully.</span>
                  </div>
             ),
              variant: 'default', // Use a 'success' variant if available
@@ -121,28 +142,85 @@ export function CreateMatchForm({ onMatchCreated }: CreateMatchFormProps) {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="matchType"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Match Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select match type" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="Normal">Normal</SelectItem>
-                  <SelectItem value="Semi-final">Semi-final</SelectItem>
-                  <SelectItem value="Final">Final</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <FormField
+               control={form.control}
+               name="sport"
+               render={({ field }) => (
+                 <FormItem>
+                   <FormLabel>Sport</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                     <FormControl>
+                       <SelectTrigger>
+                         <SelectValue placeholder="Select sport" />
+                       </SelectTrigger>
+                     </FormControl>
+                     <SelectContent>
+                       {availableSports.map(sportName => (
+                         <SelectItem key={sportName} value={sportName}>
+                           {sportName}
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                   <FormMessage />
+                 </FormItem>
+               )}
+             />
+
+             <FormField
+               control={form.control}
+               name="matchType"
+               render={({ field }) => (
+                 <FormItem>
+                   <FormLabel>Match Type</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                     <FormControl>
+                       <SelectTrigger>
+                         <SelectValue placeholder="Select match type" />
+                       </SelectTrigger>
+                     </FormControl>
+                     <SelectContent>
+                       <SelectItem value="Normal">Normal</SelectItem>
+                       <SelectItem value="Semi-final">Semi-final</SelectItem>
+                       <SelectItem value="Final">Final</SelectItem>
+                     </SelectContent>
+                   </Select>
+                   <FormMessage />
+                 </FormItem>
+               )}
+             />
+        </div>
+
+         <FormField
+           control={form.control}
+           name="gender"
+           render={({ field }) => (
+             <FormItem className="space-y-3">
+               <FormLabel>Gender Category</FormLabel>
+               <FormControl>
+                 <RadioGroup
+                   onValueChange={field.onChange}
+                   defaultValue={field.value}
+                   className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4"
+                   disabled={isLoading}
+                 >
+                   {availableGenders.map(genderType => (
+                     <FormItem key={genderType} className="flex items-center space-x-3 space-y-0">
+                       <FormControl>
+                         <RadioGroupItem value={genderType} />
+                       </FormControl>
+                       <FormLabel className="font-normal">
+                         {genderType}
+                       </FormLabel>
+                     </FormItem>
+                   ))}
+                 </RadioGroup>
+               </FormControl>
+               <FormMessage />
+             </FormItem>
+           )}
+         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
            <FormField

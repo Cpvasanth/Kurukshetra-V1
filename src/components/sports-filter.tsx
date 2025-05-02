@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -14,6 +15,7 @@ import {
   Waves, // Generic/Other Outdoor
   TreePine // Generic/Other Indoor
 } from 'lucide-react'; // Using available icons, some abstractly
+import type { Sport } from '@/services/sports-data'; // Import Sport type
 
 // Inline SVGs for specific sports not well represented
 const CricketIcon = () => (
@@ -42,12 +44,12 @@ const TableTennisIcon = () => (
 );
 
 
-interface Sport {
-  name: string;
+interface SportItem {
+  name: Sport | 'All'; // Use Sport type or 'All'
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const sports: Sport[] = [
+const sports: SportItem[] = [
     { name: 'All', icon: Activity }, // Use Activity for 'All' or a more generic icon
     { name: 'Cricket', icon: CricketIcon },
     { name: 'Football', icon: FootballIcon },
@@ -65,7 +67,7 @@ const sports: Sport[] = [
 
 
 interface SportsFilterProps {
-  selectedSport: string;
+  selectedSport: string; // Keep as string for 'all' possibility
   onSelectSport: (sport: string) => void;
 }
 
@@ -76,17 +78,17 @@ export function SportsFilter({ selectedSport, onSelectSport }: SportsFilterProps
         {sports.map((sport) => (
           <Button
             key={sport.name}
-            variant={selectedSport === sport.name.toLowerCase() ? 'default' : 'outline'}
-            onClick={() => onSelectSport(sport.name.toLowerCase() === 'all' ? 'all' : sport.name)}
+            variant={selectedSport.toLowerCase() === sport.name.toLowerCase() ? 'default' : 'outline'}
+            onClick={() => onSelectSport(sport.name)} // Pass the sport name directly
             className={cn(
               "flex flex-col items-center justify-center h-20 w-20 rounded-full p-2 transition-all duration-200 ease-in-out transform hover:scale-110 hover:shadow-md group",
-              selectedSport === sport.name.toLowerCase()
+              selectedSport.toLowerCase() === sport.name.toLowerCase()
                 ? 'bg-primary text-primary-foreground border-2 border-accent'
                 : 'bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground'
             )}
-            aria-pressed={selectedSport === sport.name.toLowerCase()}
+            aria-pressed={selectedSport.toLowerCase() === sport.name.toLowerCase()}
           >
-            <sport.icon className={cn("h-8 w-8 mb-1 transition-transform duration-200 group-hover:rotate-[10deg]", selectedSport === sport.name.toLowerCase() ? "text-accent-foreground" : "text-primary group-hover:text-accent-foreground")} />
+            <sport.icon className={cn("h-8 w-8 mb-1 transition-transform duration-200 group-hover:rotate-[10deg]", selectedSport.toLowerCase() === sport.name.toLowerCase() ? "text-accent-foreground" : "text-primary group-hover:text-accent-foreground")} />
             <span className="text-xs font-medium truncate">{sport.name}</span>
           </Button>
         ))}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -39,7 +40,7 @@ export default function SchedulePage() {
 
   // Filter events based on selected sport (filtering happens client-side after fetch)
   const filteredEvents = events.filter(event =>
-     selectedSport === 'all' || event.matchTitle.toLowerCase().includes(selectedSport.toLowerCase())
+     selectedSport === 'all' || event.sport.toLowerCase() === selectedSport.toLowerCase() // Filter by sport name
    );
 
   return (
@@ -61,7 +62,10 @@ export default function SchedulePage() {
       </section>
 
       <section>
-         <h2 className="text-xl font-semibold mb-4 text-primary">Upcoming Events</h2>
+         <h2 className="text-xl font-semibold mb-4 text-primary">
+           Upcoming Events
+           {selectedSport !== 'all' ? ` (${selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)})` : ''}
+         </h2>
         {loading ? (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => ( <Skeleton key={`skel-sch-${i}`} className="h-[250px] rounded-lg" /> ))}

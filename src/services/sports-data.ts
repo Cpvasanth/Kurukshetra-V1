@@ -14,6 +14,11 @@ import {
   Timestamp // Import Timestamp if storing dates as Firebase Timestamps
 } from 'firebase/firestore';
 
+// Define specific sports and genders for consistency
+export type Sport = 'Cricket' | 'Football' | 'Basketball' | 'Carrom' | 'Chess' | 'Volleyball' | 'Throwball' | 'Table Tennis' | 'Kho Kho' | 'Badminton' | 'Athletics Indoor' | 'Athletics Outdoor' | 'Other';
+export type Gender = 'Boys' | 'Girls' | 'Mixed';
+
+
 /**
  * Represents a sports event.
  */
@@ -26,17 +31,23 @@ export interface SportsEvent {
    * The title of the match.
    */
   matchTitle: string;
+   /**
+    * The specific sport for the event.
+    */
+  sport: Sport;
+   /**
+    * The gender category for the event.
+    */
+  gender: Gender;
   /**
    * The type of the match (e.g., Normal, Semi-final, Final).
    */
   matchType: string;
   /**
-   * The date of the match (YYYY-MM-DD format).
    * @deprecated Use dateTime instead for consistency and proper sorting.
    */
   date: string;
    /**
-    * The time of the match (HH:MM format).
     * @deprecated Use dateTime instead for consistency and proper sorting.
     */
   time: string;
@@ -100,14 +111,19 @@ export async function getSportsEvents(): Promise<SportsEvent[]> {
     const querySnapshot = await getDocs(eventsQuery);
     const events = querySnapshot.docs.map(doc => {
         const data = doc.data();
+        const dateTime = data.dateTime instanceof Timestamp ? data.dateTime : Timestamp.now(); // Provide fallback
+        const jsDate = dateTime.toDate();
         return {
            id: doc.id,
-           ...data,
-           // Ensure dateTime is correctly typed as Timestamp
-           dateTime: data.dateTime instanceof Timestamp ? data.dateTime : Timestamp.now(), // Provide fallback or handle error if needed
-           // Deprecated fields might still be needed if UI uses them, ensure conversion if needed
-           date: (data.dateTime as Timestamp).toDate().toISOString().split('T')[0],
-           time: (data.dateTime as Timestamp).toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+           matchTitle: data.matchTitle ?? 'Unknown Match',
+           sport: data.sport ?? 'Other', // Default to 'Other' if missing
+           gender: data.gender ?? 'Mixed', // Default to 'Mixed' if missing
+           matchType: data.matchType ?? 'Normal',
+           dateTime: dateTime,
+           teams: Array.isArray(data.teams) ? data.teams : ['Team A', 'Team B'],
+           // Deprecated fields (derived for potential backward compatibility)
+           date: jsDate.toISOString().split('T')[0],
+           time: jsDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
         } as SportsEvent; // Type assertion - careful with this
     });
     console.log("Fetched events:", events.length);
@@ -137,6 +153,8 @@ export async function createSportsEvent(eventData: Omit<SportsEvent, 'id' | 'dat
 
      const docRef = await addDoc(eventsCollection, {
        matchTitle: eventData.matchTitle,
+       sport: eventData.sport, // Add sport
+       gender: eventData.gender, // Add gender
        matchType: eventData.matchType,
        teams: eventData.teams,
        dateTime: dateTimeStamp, // Store the Timestamp
@@ -146,6 +164,8 @@ export async function createSportsEvent(eventData: Omit<SportsEvent, 'id' | 'dat
      const newEvent: SportsEvent = {
        id: docRef.id,
        matchTitle: eventData.matchTitle,
+       sport: eventData.sport,
+       gender: eventData.gender,
        matchType: eventData.matchType,
        date: eventData.date, // Keep for potential compatibility if needed elsewhere short-term
        time: eventData.time, // Keep for potential compatibility
@@ -181,6 +201,8 @@ export async function updateSportsEvent(event: SportsEvent): Promise<SportsEvent
       // Prepare data, excluding the ID field which shouldn't be in the update data
       const updateData: Partial<Omit<SportsEvent, 'id'>> = {
           matchTitle: event.matchTitle,
+          sport: event.sport, // Include sport
+          gender: event.gender, // Include gender
           matchType: event.matchType,
           teams: event.teams,
           dateTime: dateTimeStamp,

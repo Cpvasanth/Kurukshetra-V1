@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -5,13 +6,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { SportsEvent } from '@/services/sports-data';
 import { format } from 'date-fns';
-import { Calendar, Clock, Users, MapPin, Trophy } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, Trophy, Activity, Female, Male, UserCheck } from 'lucide-react'; // Added gender icons
 import { MatchCountdown } from './match-countdown'; // Assuming this component exists
 import type { Timestamp } from 'firebase/firestore'; // Import Timestamp type
 
 interface MatchListProps {
   events: SportsEvent[];
 }
+
+// Helper to get the appropriate icon for gender
+const getGenderIcon = (gender: string) => {
+    switch (gender) {
+        case 'Boys': return <Male className="w-4 h-4 shrink-0" />;
+        case 'Girls': return <Female className="w-4 h-4 shrink-0" />;
+        case 'Mixed': return <UserCheck className="w-4 h-4 shrink-0" />;
+        default: return <Users className="w-4 h-4 shrink-0" />; // Fallback
+    }
+}
+
 
 export function MatchList({ events }: MatchListProps) {
 
@@ -41,15 +53,23 @@ export function MatchList({ events }: MatchListProps) {
           style={{ animationDelay: `${index * 100}ms` }} // Stagger animation
         >
           <CardHeader className="bg-gradient-to-r from-primary to-blue-700 text-primary-foreground p-4">
-             <div className="flex justify-between items-center">
-               <CardTitle className="text-xl font-bold truncate">{event.matchTitle}</CardTitle>
-               <Badge variant="secondary" className="capitalize bg-accent text-accent-foreground px-2 py-1 text-xs shrink-0">
-                 {event.matchType}
-               </Badge>
+             <div className="flex justify-between items-start gap-2">
+               <CardTitle className="text-xl font-bold flex-grow mr-2">{event.matchTitle}</CardTitle>
+               <div className="flex flex-col items-end space-y-1 shrink-0">
+                 <Badge variant="secondary" className="capitalize bg-accent text-accent-foreground px-2 py-1 text-xs">
+                   {event.matchType}
+                 </Badge>
+                 <Badge variant="outline" className="capitalize bg-background/20 text-primary-foreground border-primary-foreground/50 px-2 py-1 text-xs">
+                   {event.sport}
+                 </Badge>
+               </div>
              </div>
              <CardDescription className="text-sm text-blue-200 flex items-center gap-2 mt-1 truncate">
                 <Users className="w-4 h-4 shrink-0" /> {event.teams.join(' vs ')}
              </CardDescription>
+               <CardDescription className="text-sm text-blue-200 flex items-center gap-2 mt-1">
+                  {getGenderIcon(event.gender)} {event.gender}
+               </CardDescription>
           </CardHeader>
           <CardContent className="p-4 space-y-3 flex-grow"> {/* Added flex-grow */}
             <div className="flex items-center text-sm text-muted-foreground">
