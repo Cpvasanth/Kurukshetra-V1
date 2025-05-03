@@ -12,9 +12,10 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SportsFilter } from '@/components/sports-filter';
+import { GenderFilter } from '@/components/gender-filter'; // Import GenderFilter
 import { MatchList } from '@/components/match-list';
 import { LeaderboardTable } from '@/components/leaderboard-table';
-import type { SportsEvent, MatchResult } from '@/services/sports-data';
+import type { SportsEvent, MatchResult, Gender } from '@/services/sports-data'; // Add Gender type
 import { getSportsEvents, getMatchResult } from '@/services/sports-data'; // Use Firestore functions
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -36,7 +37,7 @@ const getGenderIcon = (gender: string | undefined) => { // Allow undefined
 const HomePage: NextPage = () => {
   const [displayMode, setDisplayMode] = useState<'upcoming' | 'results'>('upcoming');
   const [selectedSport, setSelectedSport] = useState<string>('all');
-  // const [selectedGender, setSelectedGender] = useState<string>('all'); // Add state for gender filter if needed
+  const [selectedGender, setSelectedGender] = useState<string>('all'); // Add state for gender filter
   const [allEvents, setAllEvents] = useState<SportsEvent[]>([]); // Store all fetched events
   const [latestResults, setLatestResults] = useState<MatchResult[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -126,7 +127,7 @@ const HomePage: NextPage = () => {
     .filter(event => !latestResults.some(res => res.matchId === event.id)) // Filter out events that have results
     .filter(event =>
         (selectedSport === 'all' || event.sport.toLowerCase() === selectedSport.toLowerCase())
-        // && (selectedGender === 'all' || event.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic if needed
+        && (selectedGender === 'all' || event.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic
      )
     .sort((a, b) => { // Ensure upcoming are sorted by date ascending
         const timeA = getDateFromTimestamp(a.dateTime)?.getTime() ?? 0;
@@ -138,7 +139,7 @@ const HomePage: NextPage = () => {
      const match = allEvents.find(e => e.id === result.matchId);
      if (!match) return false; // Skip if match not found
      return (selectedSport === 'all' || match.sport.toLowerCase() === selectedSport.toLowerCase())
-     // && (selectedGender === 'all' || match.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic if needed
+     && (selectedGender === 'all' || match.gender.toLowerCase() === selectedGender.toLowerCase()) // Add gender filter logic
   });
 
 
@@ -167,12 +168,16 @@ const HomePage: NextPage = () => {
             </div>
         </section>
 
-      {/* Sports Filter Section */}
-      <section>
-        <h2 className="text-2xl font-semibold mb-4 text-primary">Filter by Sport</h2>
-         <SportsFilter selectedSport={selectedSport} onSelectSport={setSelectedSport} />
-         {/* Optionally add Gender Filter Component here */}
-         {/* <GenderFilter selectedGender={selectedGender} onSelectGender={setSelectedGender} /> */}
+      {/* Filters Section */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-2xl font-semibold mb-2 text-primary">Filter by Sport</h2>
+          <SportsFilter selectedSport={selectedSport} onSelectSport={setSelectedSport} />
+        </div>
+        <div>
+           <h2 className="text-2xl font-semibold mb-2 text-primary">Filter by Gender</h2>
+           <GenderFilter selectedGender={selectedGender} onSelectGender={setSelectedGender} />
+        </div>
       </section>
 
       {/* Match Display Toggle */}
@@ -208,7 +213,7 @@ const HomePage: NextPage = () => {
          <h2 className="text-2xl font-semibold mb-4 text-primary">
            {displayMode === 'upcoming' ? 'Upcoming Matches' : 'Latest Results'}
            {selectedSport !== 'all' ? ` (${selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)})` : ''}
-           {/* {selectedGender !== 'all' ? ` (${selectedGender.charAt(0).toUpperCase() + selectedGender.slice(1)})` : ''} */}
+           {selectedGender !== 'all' ? ` (${selectedGender.charAt(0).toUpperCase() + selectedGender.slice(1)})` : ''}
          </h2>
          {displayMode === 'upcoming' ? (
            loadingEvents ? (
@@ -297,3 +302,4 @@ const HomePage: NextPage = () => {
 };
 
 export default HomePage;
+
