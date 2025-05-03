@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -168,10 +169,11 @@ export function Header() {
                     <Trophy className="h-6 w-6 text-accent" />
                      <span className="text-xl font-bold text-accent">Kurukshetra</span>
                  </Link>
-                 <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-primary-foreground hover:bg-primary/90">
+                 {/* REMOVED: Default SheetContent provides its own close button */}
+                 {/* <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-primary-foreground hover:bg-primary/90">
                    <X className="h-6 w-6" />
                    <span className="sr-only">Close menu</span>
-                 </Button>
+                 </Button> */}
                </SheetHeader>
               <nav className="flex flex-col space-y-4 flex-grow">
                 {allNavLinks.map((link) => (
@@ -235,3 +237,4 @@ export function Header() {
     </header>
   );
 }
+
