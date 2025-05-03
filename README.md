@@ -1,49 +1,84 @@
-# Firebase Studio
+# Next.js + Firebase Starter
 
-This is a NextJS starter project configured for Firebase Studio.
+A minimal starter template for integrating Firebase with a Next.js application.
 
-To get started, take a look at `src/app/page.tsx`.
+> 📂 To begin, check out [`src/app/page.tsx`](src/app/page.tsx)
 
-## Environment Variables
+---
 
-This project uses Firebase for backend services like authentication and database. You **MUST** configure Firebase and set up environment variables for the application to function correctly.
+## 🚀 Setup Instructions
 
-**CRITICAL:** Failure to set the `NEXT_PUBLIC_FIREBASE_API_KEY` will cause the application to crash during initialization.
+To run this project successfully, you must configure Firebase and set up the required environment variables.
 
-1.  **Create a Firebase Project:** Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project or use an existing one.
-2.  **Register a Web App:** In your Firebase project settings, add a new Web app (+ Add app, select the Web icon `</>`).
-3.  **Get Firebase Config:** After registering the app, Firebase will provide you with a configuration object (usually in a snippet under "Add Firebase SDK"). Copy the values from this object (`apiKey`, `authDomain`, `projectId`, etc.).
-4.  **Create `.env.local` file:** Create a file named `.env.local` in the **root directory** of your project (the same level as `package.json`).
-    *   **Important:** This file should **NOT** be committed to git (it's usually included in `.gitignore` by default).
-5.  **Add Environment Variables:** Add the following variables to your `.env.local` file, replacing the `YOUR_...` placeholder values with your **actual** Firebase project configuration values obtained in step 3.
+### ✅ 1. Create a Firebase Project
 
-    ```env
-    # --- Firebase Project Configuration (Required) ---
-    # Get these values from your Firebase project settings > Web app config
-    NEXT_PUBLIC_FIREBASE_API_KEY=YOUR_API_KEY
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=YOUR_AUTH_DOMAIN
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=YOUR_STORAGE_BUCKET
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=YOUR_MESSAGING_SENDER_ID
-    NEXT_PUBLIC_FIREBASE_APP_ID=YOUR_APP_ID
-    # NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID # Optional, for Analytics
+- Visit the [Firebase Console](https://console.firebase.google.com/).
+- Create a new project or use an existing one.
 
-    # --- Firebase Emulators (Optional - for local development) ---
-    # Set to true to use local emulators instead of live Firebase services
-    # NEXT_PUBLIC_USE_FIREBASE_EMULATOR=false
-    # Set the host if your emulators are not running on 127.0.0.1
-    # NEXT_PUBLIC_EMULATOR_HOST=127.0.0.1
+### 🌐 2. Register a Web App
 
-    # --- Google AI / Genkit (Optional - for GenAI features) ---
-    # Get this from Google AI Studio or Google Cloud Console
-    # GOOGLE_GENAI_API_KEY=YOUR_GOOGLE_AI_API_KEY
-    ```
+- In your Firebase project settings, click **"Add App"** and select the **Web (`</>`)** icon.
+- After registration, Firebase will provide a configuration object containing your project credentials.
 
-6.  **Restart Development Server:** If your development server (`npm run dev` or `yarn dev`) was running, **stop it (Ctrl+C) and restart it** to load the new environment variables from `.env.local`.
+### 🧾 3. Add Environment Variables
 
-**Key Points:**
+Create a `.env.local` file in the **root directory** of your project (same level as `package.json`) and populate it with your Firebase config values:
 
-*   The `NEXT_PUBLIC_` prefix is **required** for these variables to be exposed to the browser in Next.js.
-*   The `NEXT_PUBLIC_FIREBASE_API_KEY` is absolutely essential.
-*   Ensure the `.env.local` file is in the project's root directory.
-*   Always restart your development server after modifying `.env.local`.
+```env
+# --- Firebase Configuration (Required) ---
+NEXT_PUBLIC_FIREBASE_API_KEY=YOUR_API_KEY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=YOUR_AUTH_DOMAIN
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=YOUR_STORAGE_BUCKET
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=YOUR_MESSAGING_SENDER_ID
+NEXT_PUBLIC_FIREBASE_APP_ID=YOUR_APP_ID
+# NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID # Optional
+
+# --- Firebase Emulators (Optional) ---
+# NEXT_PUBLIC_USE_FIREBASE_EMULATOR=false
+# NEXT_PUBLIC_EMULATOR_HOST=127.0.0.1
+
+# --- Google AI / Genkit (Optional) ---
+# GOOGLE_GENAI_API_KEY=YOUR_GOOGLE_AI_API_KEY
+```
+
+> ⚠️ **Important:** Do not commit `.env.local` to version control. It should already be listed in `.gitignore`.
+
+### 🔄 4. Restart the Development Server
+
+After creating or modifying `.env.local`, restart the dev server to apply changes:
+
+```bash
+# Stop the running server
+Ctrl + C
+
+# Restart the development server
+npm run dev
+# or
+yarn dev
+```
+
+---
+
+## ⚠️ Notes
+
+- All environment variables intended for use in the browser **must** start with `NEXT_PUBLIC_`.
+- `NEXT_PUBLIC_FIREBASE_API_KEY` is **required**; the app will fail to load without it.
+- The `.env.local` file must be in the project root.
+- Always restart the dev server after changing env variables.
+
+---
+
+## 💡 Project Overview
+
+This project is a **sports results and schedule viewing website** with an **admin dashboard**, powered by **Firebase Authentication**. The admin dashboard allows you to manage sports schedules, results, and team data, while Firebase Authentication ensures secure user logins.
+
+---
+
+## 👨‍💻 Author
+
+**Vasanthakumar C**  
+Blockchain Developer | React & Next.js Enthusiast  
+
+📫 [Connect on LinkedIn](https://www.linkedin.com/in/cpvasanth/)  
+📁 Portfolio: _coming soon_
