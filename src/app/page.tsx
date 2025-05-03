@@ -5,6 +5,7 @@
 import type { NextPage } from 'next';
 import { useState, useEffect } from 'react';
 import Image from 'next/image'; // Import next/image
+import deskBanner from '@/images/Sports-Background.jpg'; // Import your image asset
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -149,15 +150,16 @@ const HomePage: NextPage = () => {
         <section className="mb-8">
             <div className="relative aspect-[16/6] w-full overflow-hidden rounded-lg shadow-lg"> {/* Adjust aspect ratio as needed */}
                 <Image
-                    src="https://picsum.photos/1200/400" // Placeholder URL
+                    src={deskBanner}// Placeholder URL
                     alt="Kurukshetra Sports Event Banner"
                     fill
+                    
                     style={{ objectFit: 'cover' }} // Use style for objectFit
                     data-ai-hint="sports event banner cricket" // Hint for finding the right image
                     priority // Load image sooner
                 />
-                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                <div className="absolute bottom-4 left-4 md:bottom-6 md:left-6 text-white">
+                 <div className="absolute inset-0 bg-gradient-to-t from-white/40 to-transparent" />
+                <div className="absolute bottom-4 left-4 md:bottom-6 md:left-6 text-red-600">
                     <h1 className="text-3xl md:text-5xl font-extrabold drop-shadow-md mb-2">
                         Kurukshetra Sports Event
                     </h1>
