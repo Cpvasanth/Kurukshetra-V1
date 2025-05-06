@@ -5,7 +5,9 @@
  import { useState, useEffect } from 'react';
  import { SportsEvent, MatchResult } from '@/services/sports-data';
  import { getSportsEvents, getMatchResult } from '@/services/sports-data'; // Use Firestore functions
- import { SportsFilter } from '@/components/sports-filter';
+ import { SportsFilter} from '@/components/sports-filter';
+ import { GenderFilter } from '@/components/gender-filter'; // Import GenderFilter
+ 
  import { Skeleton } from '@/components/ui/skeleton';
  import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
  import { Badge } from '@/components/ui/badge';
@@ -44,6 +46,7 @@
    const [results, setResults] = useState<MatchResult[]>([]);
    const [loading, setLoading] = useState(true);
    const [selectedSport, setSelectedSport] = useState<string>('all');
+    const [selectedGender, setSelectedGender] = useState<string>('all'); // State for
    const { toast } = useToast();
 
 
@@ -120,8 +123,15 @@
 
 
        <section>
-         <h2 className="text-xl font-semibold mb-3 text-primary">Filter by Sport</h2>
-         <SportsFilter selectedSport={selectedSport} onSelectSport={setSelectedSport} />
+        <div>
+          <h2 className="text-2xl font-semibold mb-2 text-primary">Filter by Sport</h2>
+          <SportsFilter selectedSport={selectedSport} onSelectSport={setSelectedSport} />
+        </div>
+        {/* <div>
+           <h2 className="text-2xl font-semibold mb-2 text-primary">Filter by Gender</h2>
+           <GenderFilter selectedGender={selectedGender} onSelectGender={setSelectedGender} />
+        </div> */}
+
        </section>
 
        <section>
